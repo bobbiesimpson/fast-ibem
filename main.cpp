@@ -12,6 +12,9 @@
 #include <iomanip>
 #include <vector>
 
+#include "CollocationAssembly.h"
+
+
 #include <hlib.hh>
 
 using namespace std;

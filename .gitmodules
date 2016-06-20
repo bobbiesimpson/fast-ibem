@@ -1,0 +1,3 @@
+[submodule "libs/conformingNurbs"]
+	path = libs/conformingNurbs
+	url = git@bitbucket.org:rns/conformingnurbs.git
