@@ -18,8 +18,12 @@ namespace fastibem {
         typedef T ReturnType;
         
         /// Evaluation function which must be overloaded
-        virtual T eval(const nurbs::Point3D& xs,
+        virtual T evalSLP(const nurbs::Point3D& xs,
                        const nurbs::Point3D& xf) const = 0;
+        
+        virtual T evalDLP(const nurbs::Point3D& xs,
+                          const nurbs::Point3D& xf,
+                          const nurbs::Point3D& n) const = 0;
         
         void setMaterialProp(const std::string& s,
                              const double val)
@@ -39,6 +43,7 @@ namespace fastibem {
             }
         }
         
+        
     protected:
         
         /// Construct with one material property
@@ -53,7 +58,6 @@ namespace fastibem {
         
         
     private:
-        
         
         /// Map of material properties (if required)
         std::map<std::string, double> mMaterialProps;
@@ -89,12 +93,21 @@ namespace fastibem {
                 mWavenumber = m.second;
         }
         
-        ReturnType eval(const nurbs::Point3D& xs,
-                        const nurbs::Point3D& xf) const
+        ReturnType evalSLP(const nurbs::Point3D& xs,
+                           const nurbs::Point3D& xf) const
         {
             const double r = dist(xs, xf);
-            //return -1.0 / (4.0 * nurbs::PI * r);
-            return -1.0 * std::exp(std::complex<double>(0.0, 1.0 * wavenumber() * r)) / (4.0 * nurbs::PI * r);
+            return std::exp(std::complex<double>(0.0, 1.0 * wavenumber() * r)) / (4.0 * nurbs::PI * r);
+        }
+        
+        ReturnType evalDLP(const nurbs::Point3D& xs,
+                           const nurbs::Point3D& xf,
+                           const nurbs::Point3D& n) const
+        {
+            const double r = dist(xs, xf);
+            const std::complex<double> const1(0.0, wavenumber() * r);
+            const double drdn = nurbs::dot((xf-xs) / r, n);
+            return std::exp(const1) / (4.0 * nurbs::PI * r * r ) * (const1 - 1.0) * drdn;
         }
         
     private:
