@@ -6,6 +6,7 @@
 #include "base.h"
 #include "CollocationAssembly.h"
 #include "BoundingBoxIterator.h"
+#include "OutputVTK.h"
 
 using namespace HLIB;
 
@@ -37,7 +38,7 @@ public:
         const size_t  n = rowidxs.size();
         const size_t  m = colidxs.size();
         
-        std::cout << "computing block of size: " << n << "x" << m << "\n";
+        //std::cout << "computing block of size: " << n << "x" << m << "\n";
         
         std::vector<uint> gcolloc_vec;
         for(auto irow = 0; irow < n; ++irow)
@@ -76,7 +77,7 @@ int main(const int argc, const char* argv[])
     try {
         
         const size_t  nmin = 20;
-        const real_t  eps  = real_t(1e-6);
+        const real_t  eps  = real_t(1e-4);
         
         INIT();
         
@@ -108,27 +109,40 @@ int main(const int argc, const char* argv[])
             const uint icurrent = it.currentIndex();
             
             // insert point data
-            //vertices.push_back(it.currentPt());
+            vertices.push_back(it.currentPt());
             //p_vertices.push_back(vertices.back().data());
             const nurbs::Point3D p = it.currentPt();
             p_vertices[icurrent] = new double[3];
             for(uint i = 0; i < 3; ++i)
                 p_vertices[icurrent][i] = p.getCoord(i);
             
-//            bbmin.push_back(it.currentLowerBound());
+            bbmin.push_back(it.currentLowerBound());
 //            p_bbmin.push_back(bbmin.back().data());
             const nurbs::Point3D bbminpt = it.currentLowerBound();
             p_bbmin[icurrent] = new double[3];
             for(uint i = 0; i < 3; ++i)
                 p_bbmin[icurrent][i] = bbminpt.getCoord(i);
             
-//            bbmax.push_back(it.currentUpperBound());
+            bbmax.push_back(it.currentUpperBound());
 //            p_bbmax.push_back(bbmax.back().data());
             const nurbs::Point3D bbmaxpt = it.currentUpperBound();
             p_bbmax[icurrent] = new double[3];
             for(uint i = 0; i < 3; ++i)
                 p_bbmax[icurrent][i] = bbmaxpt.getCoord(i);
         }
+        
+        // output bounding box data
+        std::vector<std::pair<nurbs::Point3D, nurbs::Point3D>> bbdata;
+        for(uint i = 0; i < n; ++i) {
+//            std::cout << "vertex: " << vertices[i] << "\n";
+//            std::cout << "minbb: " << bbmin[i] << "\n";
+//            std::cout << "maxbb: " << bbmax[i] << "\n";
+            bbdata.push_back(std::make_pair(bbmin[i], bbmax[i]));
+        }
+        nurbs::OutputVTK output("sphere_test");
+        output.outputGeometry(forest);
+        output.outputBoundingBoxSet(bbdata);
+        
         
         std::unique_ptr<TCoordinate> coord(nurbs::make_unique<TCoordinate>(p_vertices, 3, p_bbmin, p_bbmax));
 
@@ -137,6 +151,12 @@ int main(const int argc, const char* argv[])
         fastibem::CollocationAssembly<fastibem::HelmholtzKernel> assembly(&forest,
                                                                           hkernel,
                                                                           true);
+        
+//        std::vector<uint> cvec{1};
+//        std::vector<uint> bvec{3};
+//        auto result = assembly.eval(cvec, bvec);
+//        std::cout << "result = " << result[0][0] << "\n";
+
         TAutoBSPPartStrat  part_strat;
         TBSPCTBuilder      ct_builder(&part_strat, nmin);
         auto               ct = ct_builder.build(coord.get());
@@ -181,26 +201,35 @@ int main(const int argc, const char* argv[])
         if(A->is_complex())
             std::cout << "A is complex\n";
         
-        for(uint i = 0; i < n; ++i) {
-            complex_t result;
-            for(uint j = 0; j < n; ++j)
-                result += A->centry(i, j);
-            std::cout << result.im() << "\n";
-        }
-
-//        std::vector<uint> cindices(forest.globalDofN());
-//        std::iota(cindices.begin(), cindices.end(), 0);
-//        std::vector<uint> bindices(forest.globalDofN());
-//        std::iota(bindices.begin(), bindices.end(), 0);
-//        
-//        auto hmat = assembly.eval(cindices, bindices);
-//        for(uint irow = 0; irow < cindices.size(); ++irow) {
-//            std::complex<double> sum;
-//            for(uint icol = 0; icol < bindices.size(); ++icol)
-//                sum += hmat[irow][icol];
-////                std::cout << hmat[irow][icol] << "\t";
-//            std::cout << sum << "\n";
+//        for(uint i = 0; i < 1; ++i) {
+//            complex_t result;
+//            for(uint j = 0; j < 20; ++j)
+//                std::cout << A->centry(i, j) << "\t";
+//            std::cout << "\n";
 //        }
+
+//        std::vector<uint> cindices{0};
+//        std::vector<uint> bindices(20);
+//        std::iota(bindices.begin(), bindices.end(), 0);
+        
+        std::vector<uint> cindices(forest.globalDofN());
+        std::iota(cindices.begin(), cindices.end(), 0);
+        std::vector<uint> bindices(forest.globalDofN());
+        std::iota(bindices.begin(), bindices.end(), 0);
+        
+        auto hmat = assembly.eval(cindices, bindices);
+        for(uint irow = 0; irow < cindices.size(); ++irow) {
+            std::complex<double> sum(0.0, 0.0);
+            for(uint icol = 0; icol < bindices.size(); ++icol) {
+                const auto correct = hmat[irow][icol];
+                const std::complex<double> approx(A->centry(irow, icol).re(), A->centry(irow, icol).im());
+                sum += correct;
+                if(irow == 1)
+                    std::cout << std::setprecision(10) << "(" << correct << ")\t";
+                //std::cout << std::abs(hmat[irow][icol] - approx) << "\t";
+            }
+            std::cout << "sum = " << sum << "\n";
+        }
         
         return EXIT_SUCCESS;
     }

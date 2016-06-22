@@ -55,6 +55,11 @@ namespace fastibem {
         std::vector<std::vector<DataType>> eval(const std::vector<uint>& cindices,
                                                 const std::vector<uint>& bindices)
         {
+            auto cfind = std::find(cindices.begin(),cindices.end(), 1);
+            auto bfind = std::find(bindices.begin(),bindices.end(), 3);
+            if(cfind != cindices.end() && bfind != bindices.end())
+                std::cout << "found entry\n";
+            
             // First resize return matrix with zeros
             std::vector<std::vector<DataType>> rmat(cindices.size(), std::vector<DataType>(bindices.size()));
             
@@ -68,9 +73,7 @@ namespace fastibem {
                 for(uint ibasis = 0; ibasis < bindices.size(); ++ibasis) {
                     const uint gb_i = bindices[ibasis]; // global basis index
                     const auto p = isCached(gc_i, gb_i);
-                    if(p.second)
-                        rmat[icolloc][ibasis] = p.first;
-                    else {
+                    if(!p.second) {
                         required_cbpairs.push_back(std::make_pair(gc_i, gb_i));
                         const auto elvec = connectedEls(gb_i);
                         for(const auto& e : elvec)
@@ -83,33 +86,34 @@ namespace fastibem {
             auto last = std::unique(required_epairs.begin(), required_epairs.end());
             required_epairs.erase(last, required_epairs.end());
             
-            /// If no pairings are required, we're done
-            if(required_epairs.size() == 0)
-                return rmat;
-            
-            // Otherwise, now do the actual computation for the required pairings
-            const auto nthreads = std::thread::hardware_concurrency();
-            
-            const auto bounds = calculateThreadBounds(nthreads, required_epairs.size());
-            std::vector<std::thread> threads;
-            
-            // create the threads and start the work by calling join() on each
-            auto it = required_epairs.begin();
-            for(uint ithread = 0; ithread < nthreads; ++ithread) {
-                const uint ilower = bounds[ithread];
-                const uint iupper = bounds[ithread + 1];
-                const uint nterms = iupper - ilower;
+            /// Only compute when we have non-zero entries
+            if(required_epairs.size() != 0) {
                 
-                threads.push_back(std::thread(&CollocationAssembly::multithreadNonSingularWorker,
-                                              this,
-                                              std::vector<std::pair<uint,uint>>(it, it + nterms)));
-                it += nterms;
+                // Otherwise, now do the actual computation for the required pairings
+                const auto availablethread_n = std::thread::hardware_concurrency();
+                const auto bounds = calculateThreadBounds(availablethread_n, required_epairs.size());
+                const auto nthreads = bounds.size() - 1; // the actual number of threads we will use
+                
+                std::vector<std::thread> threads;
+                
+                // create the threads and start the work by calling join() on each
+                auto it = required_epairs.begin();
+                for(uint ithread = 0; ithread < nthreads; ++ithread) {
+                    const uint ilower = bounds[ithread];
+                    const uint iupper = bounds[ithread + 1];
+                    const uint nterms = iupper - ilower;
+                    
+                    threads.push_back(std::thread(&CollocationAssembly::multithreadNonSingularWorker,
+                                                  this,
+                                                  std::vector<std::pair<uint,uint>>(it, it + nterms)));
+                    it += nterms;
+                }
+                
+                //std::cout << "Starting non-singular quadrature computations with " << nthreads << " threads...\n";
+                for(auto& t : threads)
+                    t.join();
+                //std::cout << "Quadrature computations complete!\n";
             }
-            
-            //std::cout << "Starting non-singular quadrature computations with " << nthreads << " threads...\n";
-            for(auto& t : threads)
-                t.join();
-            //std::cout << "Quadrature computations complete!\n";
             
             // And finally put the newly created entries into the return matrix
             for(uint irow = 0; irow < cindices.size(); ++irow) {
@@ -137,6 +141,8 @@ namespace fastibem {
             mCache.clear();
             mConnectedEls.clear();
             mGlobalToLocalCollocMap.clear();
+            mTempCache.clear();
+            mTempComputedEls.clear();
         }
         
         /// Init function for precomputation. Precompute all singular terms if requested.
@@ -147,11 +153,13 @@ namespace fastibem {
             
             // Set up map that specifies what elements lie in the span of each basis function
             mConnectedEls.resize(f->globalDofN());
+            
             for(uint ielem = 0; ielem < f->elemN(); ++ielem) {
                 const auto el = f->element(ielem);
                 const auto gbasisvec = el->globalBasisFuncI();
-                for(const auto& gindex : gbasisvec)
+                for(const auto& gindex : gbasisvec) {
                     mConnectedEls[gindex].push_back(ielem);
+                }
                 
                 // and insert appropriate entries into the global to local colloc map
                 for(uint icolloc = 0; icolloc < el->collocPtN(); ++icolloc)
@@ -160,8 +168,10 @@ namespace fastibem {
             
             if(precompute) {
                  // calculate all singular terms
-                const auto nthreads = std::thread::hardware_concurrency();
-                const auto bounds = calculateThreadBounds(nthreads, forest()->elemN());
+                const auto availablethread_n = std::thread::hardware_concurrency();
+                const auto bounds = calculateThreadBounds(availablethread_n, f->elemN());
+                const auto nthreads = bounds.size() - 1; // the actual number of threads we will use
+
                 std::vector<std::thread> threads;
                 for(uint ithread = 0; ithread < nthreads; ++ithread)
                     threads.push_back(std::thread(&CollocationAssembly<K>::multithreadSingularWorker,
@@ -182,8 +192,8 @@ namespace fastibem {
         void multithreadSingularWorker(const uint ilower,
                                        const uint iupper)
         {
-            std::vector<std::tuple<uint, uint, DataType>> data; // we store the final quadrature result for each cpt and global basis index here
-            std::map<std::pair<uint, uint>, double> jumpdata;
+            std::vector<std::tuple<uint, uint, uint, DataType>> data; // we store the final quadrature result for each cpt and global basis index here
+            std::map<std::tuple<uint, uint, uint>, double> jumpdata;
             
             // loop over elements in range
             for(uint ielem = ilower; ielem < iupper; ++ielem) {
@@ -212,9 +222,9 @@ namespace fastibem {
                     const auto cpt_basis = el->basis(cpt_parent.s, cpt_parent.t);
                     for(uint ibasis = 0; ibasis < el->basisFuncN(); ++ibasis) {
                         const auto gbasis_i = basisvec[ibasis];
-                        data.emplace_back(std::make_tuple(gcolloc_i, gbasis_i, qvec[ibasis]));
+                        data.emplace_back(std::make_tuple(gcolloc_i, gbasis_i, ielem, qvec[ibasis]));
                         const auto jump = -0.5 * cpt_basis[ibasis];
-                        jumpdata.insert(std::make_pair(std::make_pair(gcolloc_i, gbasis_i), jump));
+                        jumpdata.insert(std::make_pair(std::make_tuple(gcolloc_i, gbasis_i, ielem), jump));
                     }
                     
                 }
@@ -224,6 +234,12 @@ namespace fastibem {
             std::lock_guard<std::mutex> lock(mMutex);
             for(const auto& d : data) {
                 const auto p = std::make_pair(std::get<0>(d), std::get<1>(d));
+                
+                // ***********
+                // TODO : implement temp cache insertion and remove code below
+                // ************
+                
+                
                 auto search = mCache.find(p);
                 const auto val = std::get<2>(d);
                 //std::cout << "(" << p.first << "," << p.second << ")\t" << val << "\n";
@@ -243,7 +259,7 @@ namespace fastibem {
         /// each and store in the cache.
         void multithreadNonSingularWorker(const std::vector<std::pair<uint, uint>>& pvec)
         {
-            std::vector<std::tuple<uint, uint, DataType>> data; // we put the computed entries here before caching
+            std::vector<std::tuple<uint, uint, uint, DataType>> data; // we put the computed entries here before caching
             
             for(const auto& p : pvec) {
                 
@@ -276,14 +292,15 @@ namespace fastibem {
                 
                 // insert the element matrix into the data map
                 for(uint ibasis = 0; ibasis < el->basisFuncN(); ++ibasis)
-                    data.emplace_back(std::make_tuple(igcolloc, gbasis_vec[ibasis], qvec[ibasis]));
+                    data.emplace_back(std::make_tuple(igcolloc, gbasis_vec[ibasis], iel, qvec[ibasis]));
                 //std::cout << "(" << p.first << "," << p.second << ")\n";
             }
             
             // finally, cache the values using a mutex to prevent thread locking
             std::lock_guard<std::mutex> mutex(mMutex);
             for(const auto& t : data)
-                insertCachedEntry(std::make_pair(std::get<0>(t), std::get<1>(t)), std::get<2>(t));
+                insertCacheVal(std::get<0>(t), std::get<1>(t), std::get<2>(t), std::get<3>(t));
+                //insertCachedEntry(std::make_pair(std::get<0>(t), std::get<1>(t)), std::get<2>(t));
         }
         
         /// Determine whether the value for a collocation index, basis index pairing
@@ -296,6 +313,12 @@ namespace fastibem {
                 return std::make_pair(search->second, true);
             else
                 return std::make_pair(DataType(), false);
+        }
+        
+        /// Number of connected elements
+        uint connnectedElN(const uint igcolloc) const
+        {
+            return connectedEls(igcolloc).size();
         }
         
         /// Get the elements that cover the span of this basis function.
@@ -311,8 +334,6 @@ namespace fastibem {
                                const DataType val)
         {
             mCache[indices] += val;
-            //auto result = mCache.insert(std::make_pair(indices, val));
-            //return result.second;
         }
         
         /// Insert an entry into the global to local collocation map.
@@ -337,6 +358,55 @@ namespace fastibem {
                 return std::make_pair(std::make_pair(nurbs::INVALID_UINT, nurbs::INVALID_UINT), false);
         }
         
+        /// for a given global collocation index, global basis function index and global
+        /// element index, insert a cached value.
+        void insertCacheVal(const uint igcolloc,
+                            const uint igbasis,
+                            const uint iel,
+                            const DataType val)
+        {
+            
+            /// Do not insert if this entry has been computed already
+            auto cached = isCached(igcolloc, igbasis);
+            if(cached.second) {
+                std::cout << "The entry for this collocation point index and "
+                          << "basis function index has already been calculated\n";
+                return;
+            }
+            
+            // Output error message to check if we are computing terms more than once.
+            const auto p = std::make_pair(igcolloc, igbasis);
+            auto elvec = mTempComputedEls[p];
+            auto find = std::find(elvec.begin(), elvec.end(), iel);
+            
+            if(find != elvec.end())
+                std::cout << "Value already computed for this collocation point and basis index. Carrying on...\n";
+            else {
+                
+                mTempCache[p] += val;
+                mTempComputedEls[p].push_back(iel);
+            }
+            
+            // finally, if all element contributions are in place. Set the value into the final cache
+            auto elconn = connectedEls(igbasis);
+            std::vector<uint> tels;
+            for(const auto& iel : mTempComputedEls[p])
+                tels.push_back(iel);
+            std::sort(tels.begin(), tels.end());
+            std::sort(elconn.begin(), elconn.end());
+            
+            /// insert final result into cache and erase temp cache
+            if(tels == elconn) {
+                insertCachedEntry(p, mTempCache[p]);
+                auto find = mTempComputedEls.find(p);
+                mTempComputedEls.erase(find);
+                
+                auto find2 = mTempCache.find(p);
+                mTempCache.erase(find2);
+            }
+        }
+
+        
         /// Non -const forest getter
         const nurbs::Forest* forest() { return mMesh; }
         
@@ -348,6 +418,14 @@ namespace fastibem {
         
         /// Map from a global basis index to the connected elements
         std::vector<std::vector<uint>> mConnectedEls;
+        
+        /// Map from a global cpt, global basis index pairing to
+        /// the global element indices computed and cached in temp store
+        std::map<std::pair<uint,uint>, std::vector<uint>> mTempComputedEls;
+        
+        /// We store partially computed values for a collocation point,
+        /// basis index pairing here
+        std::map<std::pair<uint, uint>, DataType> mTempCache;
         
         /// Map from a global collocation index to a connected element and local
         /// collocation index

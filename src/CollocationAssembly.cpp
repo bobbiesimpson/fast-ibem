@@ -6,6 +6,9 @@ namespace fastibem {
 
     std::vector<long int> calculateThreadBounds(long int parts, long int mem)
     {
+
+        if(mem < parts)
+            return{0, mem};
         std::vector<long int>bnd;
         long int delta = mem / parts;
         long int reminder = mem % parts;
