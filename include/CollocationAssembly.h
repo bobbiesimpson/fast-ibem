@@ -5,6 +5,7 @@
 #include <thread>
 #include <vector>
 #include <tuple>
+#include <set>
 
 #include "Forest.h"
 #include "Kernel.h"
@@ -55,11 +56,6 @@ namespace fastibem {
         std::vector<std::vector<DataType>> eval(const std::vector<uint>& cindices,
                                                 const std::vector<uint>& bindices)
         {
-            auto cfind = std::find(cindices.begin(),cindices.end(), 1);
-            auto bfind = std::find(bindices.begin(),bindices.end(), 3);
-            if(cfind != cindices.end() && bfind != bindices.end())
-                std::cout << "found entry\n";
-            
             // First resize return matrix with zeros
             std::vector<std::vector<DataType>> rmat(cindices.size(), std::vector<DataType>(bindices.size()));
             
@@ -143,6 +139,7 @@ namespace fastibem {
             mGlobalToLocalCollocMap.clear();
             mTempCache.clear();
             mTempComputedEls.clear();
+            mJumpCache.clear();
         }
         
         /// Init function for precomputation. Precompute all singular terms if requested.
@@ -167,6 +164,23 @@ namespace fastibem {
             }
             
             if(precompute) {
+                
+                // compute jump terms and add to cache
+                for(uint ielem = 0; ielem < f->elemN(); ++ielem) {
+                    const auto el = f->element(ielem);
+                    for(uint icolloc = 0; icolloc < el->collocPtN(); ++icolloc) {
+                        const uint gcolloc_i = el->globalCollocI(icolloc);
+                        const nurbs::GPt2D parent_cpt = el->collocParentCoord(icolloc);
+                        const auto basis = el->basis(parent_cpt.s, parent_cpt.t);
+                        const auto gbasis_ivec = el->globalBasisFuncI();
+                        for(uint ibasis = 0; ibasis < basis.size(); ++ibasis) {
+                            const uint gbasis_i = gbasis_ivec[ibasis];
+                            DataType jterm = -0.5 * basis[ibasis];
+                            mJumpCache[std::make_pair(gcolloc_i, gbasis_i)] = jterm;
+                        }
+                    }
+                }
+                
                  // calculate all singular terms
                 const auto availablethread_n = std::thread::hardware_concurrency();
                 const auto bounds = calculateThreadBounds(availablethread_n, f->elemN());
@@ -182,7 +196,6 @@ namespace fastibem {
                 //std::cout << "Starting singular quadrature computations with " << nthreads << " threads...\n";
                 for(auto& t : threads)
                     t.join();
-                //std::cout << "Quadrature computations complete!\n";
             }
         }
         
@@ -193,7 +206,6 @@ namespace fastibem {
                                        const uint iupper)
         {
             std::vector<std::tuple<uint, uint, uint, DataType>> data; // we store the final quadrature result for each cpt and global basis index here
-            std::map<std::tuple<uint, uint, uint>, double> jumpdata;
             
             // loop over elements in range
             for(uint ielem = ilower; ielem < iupper; ++ielem) {
@@ -223,35 +235,18 @@ namespace fastibem {
                     for(uint ibasis = 0; ibasis < el->basisFuncN(); ++ibasis) {
                         const auto gbasis_i = basisvec[ibasis];
                         data.emplace_back(std::make_tuple(gcolloc_i, gbasis_i, ielem, qvec[ibasis]));
-                        const auto jump = -0.5 * cpt_basis[ibasis];
-                        jumpdata.insert(std::make_pair(std::make_tuple(gcolloc_i, gbasis_i, ielem), jump));
                     }
-                    
                 }
             }
             
             // now add the result map for this set of elements to the global cache maps
             std::lock_guard<std::mutex> lock(mMutex);
             for(const auto& d : data) {
-                const auto p = std::make_pair(std::get<0>(d), std::get<1>(d));
-                
-                // ***********
-                // TODO : implement temp cache insertion and remove code below
-                // ************
-                
-                
-                auto search = mCache.find(p);
-                const auto val = std::get<2>(d);
-                //std::cout << "(" << p.first << "," << p.second << ")\t" << val << "\n";
-                // if (cpt, basis) pair exists, increment existing value
-                if(search != mCache.end())
-                    mCache[search->first] += val;
-                else { // otherwise insert a new entry with the jump term
-                    auto searchjump = jumpdata.find(p);
-                    if(searchjump == jumpdata.end())
-                        throw std::runtime_error("Could not find jump term");
-                    mCache.insert(std::make_pair(p,val + searchjump->second));
-                }
+                const uint igcolloc = std::get<0>(d);
+                const uint igbasis = std::get<1>(d);
+                const uint iel = std::get<2>(d);
+                const auto val = std::get<3>(d);
+                insertCacheVal(igcolloc, igbasis, iel, val);
             }
         }
         
@@ -365,12 +360,11 @@ namespace fastibem {
                             const uint iel,
                             const DataType val)
         {
-            
             /// Do not insert if this entry has been computed already
             auto cached = isCached(igcolloc, igbasis);
             if(cached.second) {
-                std::cout << "The entry for this collocation point index and "
-                          << "basis function index has already been calculated\n";
+//                std::cout << "The entry for this collocation point index and "
+//                          << "basis function index has already been calculated\n";
                 return;
             }
             
@@ -379,8 +373,10 @@ namespace fastibem {
             auto elvec = mTempComputedEls[p];
             auto find = std::find(elvec.begin(), elvec.end(), iel);
             
-            if(find != elvec.end())
-                std::cout << "Value already computed for this collocation point and basis index. Carrying on...\n";
+            if(find != elvec.end()) {
+                //std::cout << "Value already computed for this collocation point, basis index and element index.\n";
+                return;
+            }
             else {
                 
                 mTempCache[p] += val;
@@ -389,13 +385,18 @@ namespace fastibem {
             
             // finally, if all element contributions are in place. Set the value into the final cache
             auto elconn = connectedEls(igbasis);
+            
+            // first construct a vectof of all the computed element indices
             std::vector<uint> tels;
             for(const auto& iel : mTempComputedEls[p])
                 tels.push_back(iel);
+            
+            // sort this vector and the element connectivity vector
             std::sort(tels.begin(), tels.end());
             std::sort(elconn.begin(), elconn.end());
             
-            /// insert final result into cache and erase temp cache
+            /// insert final result into cache if all elements computed, erase temp cache
+            // and insert jump term if this exists in cache.
             if(tels == elconn) {
                 insertCachedEntry(p, mTempCache[p]);
                 auto find = mTempComputedEls.find(p);
@@ -403,6 +404,14 @@ namespace fastibem {
                 
                 auto find2 = mTempCache.find(p);
                 mTempCache.erase(find2);
+                
+                // jump term
+                auto jsearch = mJumpCache.find(p);
+                if(jsearch != mJumpCache.end()) {
+                    insertCachedEntry(p, jsearch->second);
+                    mJumpCache.erase(jsearch);
+                }
+
             }
         }
 
@@ -430,6 +439,9 @@ namespace fastibem {
         /// Map from a global collocation index to a connected element and local
         /// collocation index
         std::map<uint, std::pair<uint, uint>> mGlobalToLocalCollocMap;
+        
+        /// Cache for storing jump terms to be assembled in future.
+        std::map<std::pair<uint, uint>, DataType> mJumpCache;
         
         /// The kernel instance
         const KernelType mKernel;

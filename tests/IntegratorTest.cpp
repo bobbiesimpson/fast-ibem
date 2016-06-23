@@ -91,7 +91,7 @@ int main(const int argc, const char* argv[])
         if(!g.loadHBSFile(ifs))
             nurbs::error("Failed to load geometry from hbs data");
         nurbs::Forest forest(g);
-        forest.hrefine(1);
+        forest.hrefine(5);
         std::cout << "Performing BE analysis with " << forest.globalDofN() << " dof\n";
     
         // create vectors that manage the memory of bounding box data
@@ -147,7 +147,7 @@ int main(const int argc, const char* argv[])
         std::unique_ptr<TCoordinate> coord(nurbs::make_unique<TCoordinate>(p_vertices, 3, p_bbmin, p_bbmax));
 
         // create kernel and assembly instance
-        fastibem::HelmholtzKernel hkernel(std::make_pair("k", 0.0));
+        fastibem::HelmholtzKernel hkernel(std::make_pair("k", 1.0));
         fastibem::CollocationAssembly<fastibem::HelmholtzKernel> assembly(&forest,
                                                                           hkernel,
                                                                           true);
@@ -212,20 +212,19 @@ int main(const int argc, const char* argv[])
 //        std::vector<uint> bindices(20);
 //        std::iota(bindices.begin(), bindices.end(), 0);
         
-        std::vector<uint> cindices(forest.globalDofN());
-        std::iota(cindices.begin(), cindices.end(), 0);
-        std::vector<uint> bindices(forest.globalDofN());
-        std::iota(bindices.begin(), bindices.end(), 0);
+//        std::vector<uint> cindices(forest.globalDofN());
+//        std::iota(cindices.begin(), cindices.end(), 0);
+//        std::vector<uint> bindices(forest.globalDofN());
+//        std::iota(bindices.begin(), bindices.end(), 0);
+//        
+//        auto hmat = assembly.eval(cindices, bindices);
         
-        auto hmat = assembly.eval(cindices, bindices);
-        for(uint irow = 0; irow < cindices.size(); ++irow) {
+        for(uint irow = 0; irow < n; ++irow) {
             std::complex<double> sum(0.0, 0.0);
-            for(uint icol = 0; icol < bindices.size(); ++icol) {
-                const auto correct = hmat[irow][icol];
+            for(uint icol = 0; icol < n; ++icol) {
+//                const auto correct = hmat[irow][icol];
                 const std::complex<double> approx(A->centry(irow, icol).re(), A->centry(irow, icol).im());
-                sum += correct;
-                if(irow == 1)
-                    std::cout << std::setprecision(10) << "(" << correct << ")\t";
+                sum += approx;
                 //std::cout << std::abs(hmat[irow][icol] - approx) << "\t";
             }
             std::cout << "sum = " << sum << "\n";
