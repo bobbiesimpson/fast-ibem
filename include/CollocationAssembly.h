@@ -7,6 +7,7 @@
 #include <tuple>
 #include <set>
 
+#include "Geometry.h"
 #include "Forest.h"
 #include "Kernel.h"
 #include "IPolarIntegrate.h"
@@ -166,6 +167,8 @@ namespace fastibem {
             if(precompute) {
                 
                 // compute jump terms and add to cache
+                
+                const double jval = (f->geometry()->normalsFlipped()) ? -0.5 : 0.5;
                 for(uint ielem = 0; ielem < f->elemN(); ++ielem) {
                     const auto el = f->element(ielem);
                     for(uint icolloc = 0; icolloc < el->collocPtN(); ++icolloc) {
@@ -175,7 +178,7 @@ namespace fastibem {
                         const auto gbasis_ivec = el->globalBasisFuncI();
                         for(uint ibasis = 0; ibasis < basis.size(); ++ibasis) {
                             const uint gbasis_i = gbasis_ivec[ibasis];
-                            DataType jterm = -0.5 * basis[ibasis];
+                            DataType jterm = -jval * basis[ibasis];
                             mJumpCache[std::make_pair(gcolloc_i, gbasis_i)] = jterm;
                         }
                     }

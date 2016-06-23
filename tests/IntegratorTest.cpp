@@ -13,17 +13,18 @@ using namespace HLIB;
 using complex_t = HLIB::complex;
 using real_t = HLIB::real;
 
-
+///
 /// A class to represent generation of the spline-based
 /// coefficients for IGA BE analysis
-
+///
 class HelmholtzCoeffFn : public TPermCoeffFn<complex_t> {
     
 public:
     
+    /// Typedef for assembly type
     typedef fastibem::CollocationAssembly<fastibem::HelmholtzKernel> AssemblyType;
     
-    // constructor
+    // Constructor
     HelmholtzCoeffFn(AssemblyType* a,
                      const TPermutation * row_perm,
                      const TPermutation * col_perm)
@@ -61,7 +62,8 @@ public:
     
     using TPermCoeffFn<complex_t>::eval;
     
-    virtual matform_t matrix_format() const { return MATFORM_NONSYM; }
+    /// Collocation BE matrix is non-symmetric
+    virtual matform_t matrix_format() const override { return MATFORM_NONSYM; }
     
 private:
     
@@ -76,25 +78,53 @@ int main(const int argc, const char* argv[])
 {
     try {
         
-        const size_t  nmin = 20;
-        const real_t  eps  = real_t(1e-4);
+        // solver parameters
+        const size_t  nmin = 20;                // min block size
+        const real_t  eps  = real_t(1e-4);      // H-matrix precision
+        
+        // Helmholtz parameters
+        const double k = 10.0;                  // wavenumber
+        const nurbs::Point3D d(1.0, 0.0, 0.0);  // direction of plane wave
         
         INIT();
-        
         CFG::set_verbosity( 3 );
         
-        // Read in the input and create the geometry object
+        //
+        // Geometry and forest setup
+        //
         std::ifstream ifs(argv[1]);
         if(!ifs)
             nurbs::error("Cannot open file for reading\n");
         nurbs::Geometry g;
         if(!g.loadHBSFile(ifs))
             nurbs::error("Failed to load geometry from hbs data");
+        g.flipNormals(true);
         nurbs::Forest forest(g);
-        forest.hrefine(5);
-        std::cout << "Performing BE analysis with " << forest.globalDofN() << " dof\n";
+        
+        //
+        // h-refinement
+        //
+        uint refine = 0;
+        const uint max_refine = 5;
+        if(argc > 2) {
+            auto input = std::atoi(argv[2]);
+            if(input < 0)
+                std::cout << "Cannot supplied negative refinement integer. Carrying on with no h-refinement";
+            if(input > max_refine) {
+                std::cout << "Truncating refinement to " << max_refine << " levels.";
+                refine = max_refine;
+            }
+            else {
+                std::cout << "Applying " << input << " levels of h-refinement\n";
+                refine = input;
+            }
+        }
+        forest.hrefine(refine);
+        std::cout << "Performing BE analysis with " << forest.globalDofN() << " dof and " << forest.elemN() << " elements\n";
     
-        // create vectors that manage the memory of bounding box data
+        //
+        // Bounding box setup
+        //
         const uint n = forest.collocPtN();
         std::vector<nurbs::Point3D> vertices;
         std::vector<nurbs::Point3D> bbmin;
@@ -104,59 +134,54 @@ int main(const int argc, const char* argv[])
         std::vector<double*> p_bbmin(n);
         std::vector<double*> p_bbmax(n);
 
+        // Iterate over all bounding boxes
         for(nurbs::BoundingBoxIterator it(forest); !it.isDone(); ++it) {
             
             const uint icurrent = it.currentIndex();
             
             // insert point data
             vertices.push_back(it.currentPt());
-            //p_vertices.push_back(vertices.back().data());
             const nurbs::Point3D p = it.currentPt();
             p_vertices[icurrent] = new double[3];
             for(uint i = 0; i < 3; ++i)
                 p_vertices[icurrent][i] = p.getCoord(i);
             
             bbmin.push_back(it.currentLowerBound());
-//            p_bbmin.push_back(bbmin.back().data());
             const nurbs::Point3D bbminpt = it.currentLowerBound();
             p_bbmin[icurrent] = new double[3];
             for(uint i = 0; i < 3; ++i)
                 p_bbmin[icurrent][i] = bbminpt.getCoord(i);
             
             bbmax.push_back(it.currentUpperBound());
-//            p_bbmax.push_back(bbmax.back().data());
             const nurbs::Point3D bbmaxpt = it.currentUpperBound();
             p_bbmax[icurrent] = new double[3];
             for(uint i = 0; i < 3; ++i)
                 p_bbmax[icurrent][i] = bbmaxpt.getCoord(i);
         }
         
-        // output bounding box data
+        // now push data into a vector and create TCoordinate vector
         std::vector<std::pair<nurbs::Point3D, nurbs::Point3D>> bbdata;
-        for(uint i = 0; i < n; ++i) {
-//            std::cout << "vertex: " << vertices[i] << "\n";
-//            std::cout << "minbb: " << bbmin[i] << "\n";
-//            std::cout << "maxbb: " << bbmax[i] << "\n";
+        for(uint i = 0; i < n; ++i)
             bbdata.push_back(std::make_pair(bbmin[i], bbmax[i]));
-        }
+        std::unique_ptr<TCoordinate> coord(nurbs::make_unique<TCoordinate>(p_vertices, 3, p_bbmin, p_bbmax));
+        
+        // Output bounding box data
         nurbs::OutputVTK output("sphere_test");
         output.outputGeometry(forest);
         output.outputBoundingBoxSet(bbdata);
-        
-        
-        std::unique_ptr<TCoordinate> coord(nurbs::make_unique<TCoordinate>(p_vertices, 3, p_bbmin, p_bbmax));
 
-        // create kernel and assembly instance
-        fastibem::HelmholtzKernel hkernel(std::make_pair("k", 1.0));
+
+        //
+        // Kernel and assembly
+        //
+        fastibem::HelmholtzKernel hkernel(std::make_pair("k", k));
         fastibem::CollocationAssembly<fastibem::HelmholtzKernel> assembly(&forest,
                                                                           hkernel,
                                                                           true);
-        
-//        std::vector<uint> cvec{1};
-//        std::vector<uint> bvec{3};
-//        auto result = assembly.eval(cvec, bvec);
-//        std::cout << "result = " << result[0][0] << "\n";
 
+        //
+        // Hlibpro cluster tree setup
+        //
         TAutoBSPPartStrat  part_strat;
         TBSPCTBuilder      ct_builder(&part_strat, nmin);
         auto               ct = ct_builder.build(coord.get());
@@ -170,9 +195,11 @@ int main(const int argc, const char* argv[])
             
             c_vis.print( ct->root(), "bem1d_ct" );
             bc_vis.print( bct->root(), "bem1d_bct" );
-        }// if
+        }
         
-        // now build the matrix
+        //
+        // Hlibpro Hmatrix setup
+        //
         std::cout << "━━ building H-matrix ( eps = " << eps << " )" << std::endl;
         
         TTimer                    timer( WALL_TIME );
@@ -182,15 +209,12 @@ int main(const int argc, const char* argv[])
         TACAPlus<complex_t>       aca(&coefffn);
         TDenseMBuilder<complex_t> h_builder(&coefffn, &aca);
         TPSMatrixVis              mvis;
-        
-        // enable coarsening during construction
         h_builder.set_coarsening(false);
         
         timer.start();
-        
         auto  A = h_builder.build(bct.get(), acc, &progress);
-        
         timer.pause();
+        
         std::cout << "    done in " << timer << std::endl;
         std::cout << "    size of H-matrix = " << Mem::to_string( A->byte_size() ) << std::endl;
         
@@ -198,37 +222,77 @@ int main(const int argc, const char* argv[])
             mvis.svd( true );
             mvis.print( A.get(), "bem1d_A" );
         }
-        if(A->is_complex())
-            std::cout << "A is complex\n";
-        
-//        for(uint i = 0; i < 1; ++i) {
-//            complex_t result;
-//            for(uint j = 0; j < 20; ++j)
-//                std::cout << A->centry(i, j) << "\t";
-//            std::cout << "\n";
-//        }
 
-//        std::vector<uint> cindices{0};
-//        std::vector<uint> bindices(20);
-//        std::iota(bindices.begin(), bindices.end(), 0);
-        
-//        std::vector<uint> cindices(forest.globalDofN());
-//        std::iota(cindices.begin(), cindices.end(), 0);
-//        std::vector<uint> bindices(forest.globalDofN());
-//        std::iota(bindices.begin(), bindices.end(), 0);
-//        
-//        auto hmat = assembly.eval(cindices, bindices);
-        
-        for(uint irow = 0; irow < n; ++irow) {
-            std::complex<double> sum(0.0, 0.0);
-            for(uint icol = 0; icol < n; ++icol) {
-//                const auto correct = hmat[irow][icol];
-                const std::complex<double> approx(A->centry(irow, icol).re(), A->centry(irow, icol).im());
-                sum += approx;
-                //std::cout << std::abs(hmat[irow][icol] - approx) << "\t";
+        //
+        // RHS vector setup (planewave)
+        //
+        std::map<uint, complex_t> rhsmap;
+        for(uint ispace = 0; ispace < forest.spaceN(); ++ispace) {
+            const auto space = forest.space(ispace);
+            for(uint icolloc = 0; icolloc < space.grevilleAbscissaPtN(); ++icolloc) {
+                const uint gindex = forest.globalCollocI(ispace, icolloc);
+                auto search = rhsmap.find(gindex);
+                if(search == rhsmap.end()) {
+                    const nurbs::Point3D xc = forest.collocPt(ispace, icolloc);
+                    const auto phi_i = std::exp(std::complex<double>(0.0, k * nurbs::dot(d, xc)));
+                    const auto cval = complex_t(phi_i.real(), phi_i.imag());
+                    rhsmap[gindex] = cval;
+                }
             }
-            std::cout << "sum = " << sum << "\n";
         }
+    
+        auto b = A->row_vector();
+        for(size_t i = 0; i < n; i++)
+            b->set_centry(i, rhsmap[i]);
+        
+        ct->perm_e2i()->permute( b.get() );
+        
+        //
+        // Preconditioning
+        //
+        auto  B = A->copy();
+        timer.start();
+        auto  A_inv = factorise_inv( B.get(), acc, & progress );
+        timer.pause();
+        std::cout << " done in " << timer << std::endl;
+        std::cout << "    size of LU factor = " << Mem::to_string( B->byte_size() ) << std::endl;
+        std::cout << "    inversion error   = " << std::scientific << std::setprecision( 4 )
+        << inv_approx_2( A.get(), A_inv.get() ) << std::endl;
+        
+        if( verbose( 2 ) )
+            mvis.print( B.get(), "bem1d_LU" );
+
+        //
+        // GMRES solver
+        //
+        std::cout << std::endl << "━━ solving system" << std::endl;
+        
+        TGMRES solver(100);
+        TSolver::TInfo  solve_info(false, verbose( 2 ));
+        auto x = A->col_vector();
+        
+        timer.start();
+        solver.solve( A.get(), x.get(), b.get(), A_inv.get(), & solve_info );
+        
+        if ( solve_info.converged() ) {
+            std::cout << "  converged in " << timer << " and "
+            << solve_info.n_iter() << " steps with rate " << solve_info.conv_rate()
+            << ", |r| = " << solve_info.res_norm() << std::endl;
+            
+            ct->perm_i2e()->permute( x.get() );
+            
+            // create output vector and set to VTK file
+            std::vector<std::complex<double>> solnvec(n);
+            for(size_t i = 0; i < n; ++i) {
+                const auto entry = x->centry(i);
+                solnvec[i] = std::complex<double>(entry.re(), entry.im());
+                std::cout << entry.re() << "," << entry.im() << "\n";
+            }
+            output.outputComplexAnalysisField(forest, solnvec);
+        }
+        else
+            std::cout << "  not converged in " << timer << " and "
+            << solve_info.n_iter() << " steps " << std::endl;
         
         return EXIT_SUCCESS;
     }
