@@ -112,6 +112,7 @@ namespace fastibem {
                 //std::cout << "Quadrature computations complete!\n";
             }
             
+            std::lock_guard<std::mutex> lock(mMutex);
             // And finally put the newly created entries into the return matrix
             for(uint irow = 0; irow < cindices.size(); ++irow) {
                 const uint igcolloc = cindices[irow];
@@ -179,7 +180,10 @@ namespace fastibem {
                         for(uint ibasis = 0; ibasis < basis.size(); ++ibasis) {
                             const uint gbasis_i = gbasis_ivec[ibasis];
                             DataType jterm = -jval * basis[ibasis];
-                            mJumpCache[std::make_pair(gcolloc_i, gbasis_i)] = jterm;
+                            auto p = std::make_pair(gcolloc_i, gbasis_i);
+                            auto find = mJumpCache.find(p);
+                            if(find == mJumpCache.end())
+                                mJumpCache[p] = jterm;
                         }
                     }
                 }

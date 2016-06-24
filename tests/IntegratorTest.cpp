@@ -83,7 +83,7 @@ int main(const int argc, const char* argv[])
         const real_t  eps  = real_t(1e-4);      // H-matrix precision
         
         // Helmholtz parameters
-        const double k = 10.0;                  // wavenumber
+        const double k = 1.0;                  // wavenumber
         const nurbs::Point3D d(1.0, 0.0, 0.0);  // direction of plane wave
         
         INIT();
@@ -119,6 +119,7 @@ int main(const int argc, const char* argv[])
                 refine = input;
             }
         }
+        //forest.degreeReduce(3); // reduce to linears
         forest.hrefine(refine);
         std::cout << "Performing BE analysis with " << forest.globalDofN() << " dof and " << forest.elemN() << " elements\n";
     
@@ -169,7 +170,6 @@ int main(const int argc, const char* argv[])
         nurbs::OutputVTK output("sphere_test");
         output.outputGeometry(forest);
         output.outputBoundingBoxSet(bbdata);
-
 
         //
         // Kernel and assembly
@@ -223,6 +223,34 @@ int main(const int argc, const char* argv[])
             mvis.print( A.get(), "bem1d_A" );
         }
 
+        for(size_t j = 0; j < n; ++j)
+            std::cout << A->centry(0, j) << " ";
+        std::cout << "\n";
+        
+//        std::cout << "manual result\n\n";
+//        std::vector<complex_t> result(n);
+//        const auto xs = forest.collocPt(0, 0);
+//        for(uint ielem = 0; ielem < forest.elemN(); ++ielem) {
+//            const auto el = forest.element(ielem);
+//            const auto gbasis_vec = el->globalBasisFuncI();
+//            
+//            for(nurbs::IElemIntegrate igpt(el->integrationOrder()); !igpt.isDone(); ++igpt) {
+//                const nurbs::GPt2D gpt = igpt.get();
+//                const nurbs::Point3D xf = el->eval(gpt);
+//                const auto basis = el->basis(gpt.s, gpt.t);
+//                const auto normal = el->normal(gpt);
+//                for(uint ibasis = 0; ibasis < el->basisFuncN(); ++ibasis) {
+//                    const auto kernel = hkernel.evalDLP(xs, xf, normal);
+//                    result[gbasis_vec[ibasis]] += /*complex_t(kernel.real(),kernel.imag()) * */basis[ibasis] * el->jacDet(gpt) * igpt.getWeight();
+//                }
+//            }
+//        }
+//        
+//        complex_t summer;
+//        for(const auto& v : result) {
+//            summer += v;
+//            std::cout << "(" << v << ")";
+//        }
         //
         // RHS vector setup (planewave)
         //
@@ -234,6 +262,7 @@ int main(const int argc, const char* argv[])
                 auto search = rhsmap.find(gindex);
                 if(search == rhsmap.end()) {
                     const nurbs::Point3D xc = forest.collocPt(ispace, icolloc);
+                    std::cout << xc.length() << "\n";
                     const auto phi_i = std::exp(std::complex<double>(0.0, k * nurbs::dot(d, xc)));
                     const auto cval = complex_t(phi_i.real(), phi_i.imag());
                     rhsmap[gindex] = cval;
@@ -244,9 +273,13 @@ int main(const int argc, const char* argv[])
         auto b = A->row_vector();
         for(size_t i = 0; i < n; i++)
             b->set_centry(i, rhsmap[i]);
+        ct->perm_e2i()->permute( b.get() ); 
         
-        ct->perm_e2i()->permute( b.get() );
-        
+//        for(size_t i = 0; i < n; i++) {
+//            const auto entry = b->centry(i);
+//            std::cout << entry << "\t" << entry.abs() << "\n";
+//        }
+
         //
         // Preconditioning
         //
@@ -267,8 +300,12 @@ int main(const int argc, const char* argv[])
         //
         std::cout << std::endl << "━━ solving system" << std::endl;
         
-        TGMRES solver(100);
-        TSolver::TInfo  solve_info(false, verbose( 2 ));
+//        TGMRES solver(100);
+//        TSolver::TInfo  solve_info(false, verbose( 2 ));
+        
+        TAutoSolver     solver( 1000 );
+        TSolver::TInfo  solve_info( false, verbose( 2 ) );
+        
         auto x = A->col_vector();
         
         timer.start();
