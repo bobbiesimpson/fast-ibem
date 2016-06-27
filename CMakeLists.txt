@@ -27,6 +27,9 @@ set(hlibprodir "NOT-DEFINED" CACHE PATH "/opt")
 include_directories(${hlibprodir}/include)
 link_directories(${hlibprodir}/lib)
 
+# add Eigen library include fileds
+include_directories(${fast-ibem-SOURCE_DIR}/libs/Eigen})
+
 # Add conforming nurbs submodule
 ADD_SUBDIRECTORY(${fast-ibem_SOURCE_DIR}/libs/conformingNurbs)
 INCLUDE_DIRECTORIES(${fast-ibem_SOURCE_DIR}/libs/conformingNurbs/include)

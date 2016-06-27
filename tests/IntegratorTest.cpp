@@ -83,7 +83,7 @@ int main(const int argc, const char* argv[])
         const real_t  eps  = real_t(1e-4);      // H-matrix precision
         
         // Helmholtz parameters
-        const double k = 1.0;                  // wavenumber
+        const double k = 10.0;                  // wavenumber
         const nurbs::Point3D d(1.0, 0.0, 0.0);  // direction of plane wave
         
         INIT();
@@ -99,6 +99,7 @@ int main(const int argc, const char* argv[])
         if(!g.loadHBSFile(ifs))
             nurbs::error("Failed to load geometry from hbs data");
         g.flipNormals(true);
+        //g.rescale(1.0 / 54.0);
         nurbs::Forest forest(g);
         
         //
@@ -120,6 +121,7 @@ int main(const int argc, const char* argv[])
             }
         }
         //forest.degreeReduce(3); // reduce to linears
+        //forest.degreeElevate(1);
         forest.hrefine(refine);
         std::cout << "Performing BE analysis with " << forest.globalDofN() << " dof and " << forest.elemN() << " elements\n";
     
@@ -222,35 +224,15 @@ int main(const int argc, const char* argv[])
             mvis.svd( true );
             mvis.print( A.get(), "bem1d_A" );
         }
-
-        for(size_t j = 0; j < n; ++j)
-            std::cout << A->centry(0, j) << " ";
-        std::cout << "\n";
         
-//        std::cout << "manual result\n\n";
-//        std::vector<complex_t> result(n);
-//        const auto xs = forest.collocPt(0, 0);
-//        for(uint ielem = 0; ielem < forest.elemN(); ++ielem) {
-//            const auto el = forest.element(ielem);
-//            const auto gbasis_vec = el->globalBasisFuncI();
-//            
-//            for(nurbs::IElemIntegrate igpt(el->integrationOrder()); !igpt.isDone(); ++igpt) {
-//                const nurbs::GPt2D gpt = igpt.get();
-//                const nurbs::Point3D xf = el->eval(gpt);
-//                const auto basis = el->basis(gpt.s, gpt.t);
-//                const auto normal = el->normal(gpt);
-//                for(uint ibasis = 0; ibasis < el->basisFuncN(); ++ibasis) {
-//                    const auto kernel = hkernel.evalDLP(xs, xf, normal);
-//                    result[gbasis_vec[ibasis]] += /*complex_t(kernel.real(),kernel.imag()) * */basis[ibasis] * el->jacDet(gpt) * igpt.getWeight();
-//                }
-//            }
+//        for(size_t i = 0; i < n; ++i){
+//            complex_t sum;
+//            for(size_t j = 0; j < n; ++j)
+//                sum += A->centry(i, j);
+//            std::cout << sum << "\n";
+//            std::cout << "\n";
 //        }
-//        
-//        complex_t summer;
-//        for(const auto& v : result) {
-//            summer += v;
-//            std::cout << "(" << v << ")";
-//        }
+        
         //
         // RHS vector setup (planewave)
         //
@@ -262,7 +244,7 @@ int main(const int argc, const char* argv[])
                 auto search = rhsmap.find(gindex);
                 if(search == rhsmap.end()) {
                     const nurbs::Point3D xc = forest.collocPt(ispace, icolloc);
-                    std::cout << xc.length() << "\n";
+                    //const auto phi_i = std::complex<double>(nurbs::dot(d, xc), 0.0);
                     const auto phi_i = std::exp(std::complex<double>(0.0, k * nurbs::dot(d, xc)));
                     const auto cval = complex_t(phi_i.real(), phi_i.imag());
                     rhsmap[gindex] = cval;
@@ -325,7 +307,7 @@ int main(const int argc, const char* argv[])
                 solnvec[i] = std::complex<double>(entry.re(), entry.im());
                 std::cout << entry.re() << "," << entry.im() << "\n";
             }
-            output.outputComplexAnalysisField(forest, solnvec);
+            output.outputComplexAnalysisField(forest, "acoustic potential", solnvec);
         }
         else
             std::cout << "  not converged in " << timer << " and "

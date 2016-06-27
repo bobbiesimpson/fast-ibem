@@ -6,7 +6,7 @@
 #include <vector>
 #include <tuple>
 #include <set>
-
+#include <cmath>
 #include "Geometry.h"
 #include "Forest.h"
 #include "Kernel.h"
@@ -233,8 +233,13 @@ namespace fastibem {
                         const nurbs::Point3D xf = el->eval(gpt);
                         const auto basis = el->basis(gpt.s, gpt.t);
                         const auto normal = el->normal(gpt);
+                        
                         for(uint ibasis = 0; ibasis < el->basisFuncN(); ++ibasis) {
                             qvec[ibasis] += kernel().evalDLP(xs, xf, normal) * basis[ibasis] * el->jacDet(gpt) * igpt.getWeight();
+                            
+//                            const auto temp = kernel().evalDLP(xs, xf, normal) * basis[ibasis] * el->jacDet(gpt) * igpt.getWeight();
+//                            if(std::isnan(temp.real()) || std::isnan(temp.imag()))
+//                                std::cout << "bad singular basis\n";
                         }
                     }
                     // now assemble the local vector into the data map
@@ -289,6 +294,10 @@ namespace fastibem {
                     const auto normal = el->normal(gpt);
                     for(uint ibasis = 0; ibasis < el->basisFuncN(); ++ibasis) {
                         qvec[ibasis] += kernel().evalDLP(xs, xf, normal) * basis[ibasis] * el->jacDet(gpt) * igpt.getWeight();
+                        
+//                        const auto temp = kernel().evalDLP(xs, xf, normal) * basis[ibasis] * el->jacDet(gpt) * igpt.getWeight();
+//                        if(std::isnan(temp.real()) || std::isnan(temp.imag()))
+//                            std::cout << "bad regular basis\n";
                     }
                 }
                 

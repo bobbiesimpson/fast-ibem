@@ -107,7 +107,7 @@ namespace fastibem {
             const double r = dist(xs, xf);
             const std::complex<double> const1(0.0, wavenumber() * r);
             const double drdn = nurbs::dot((xf-xs) / r, n);
-            return std::exp(const1) / (4.0 * nurbs::PI * r * r ) * (const1 - 1.0) * drdn;
+            return std::exp(const1) / (4.0 * nurbs::PI * r * r ) * (1.0 - const1) * drdn;
         }
         
     private:
