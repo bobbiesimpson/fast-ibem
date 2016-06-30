@@ -30,20 +30,6 @@ int main(int argc, char* argv[])
     nurbs::Forest forest(g);
     forest.hrefine(refine);
     
-//    auto start = std::chrono::high_resolution_clock::now();
-//    for(uint ielem = 0; ielem < forest.elemN(); ++ielem) {
-//        const auto el = forest.element(ielem);
-//        for(nurbs::IPolarIntegrate igpt(nurbs::GPt2D(0.0, 0.0), el->integrationOrder()); !igpt.isDone(); ++igpt) {
-//            const auto gp = igpt.get();
-//            auto n = el->normal(gp.s, gp.t);
-//            auto basis = el->basis(gp.s, gp.t);
-//            auto jacob = el->jacDet(gp.s, gp.t);
-//        }
-//    }
-//    auto time =  std::chrono::high_resolution_clock::now() - start;
-//    std::cout << "Elapsed time: " << std::chrono::duration_cast<std::chrono::seconds>(time).count() << "(s)" << "\n";
-
-    
     //
     // now assemble entries into A matrix
     //

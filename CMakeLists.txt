@@ -40,13 +40,11 @@ set(THIS_LINK_LIBS ${THIS_LINK_LIBS} confnurbs)
 set(LIB_INCLUDE_DIR ${fast-ibem_SOURCE_DIR}/include)
 include_directories(${LIB_INCLUDE_DIR})
 set(LIBHEADERS  ${LIB_INCLUDE_DIR}/CollocationAssembly.h
-                ${LIB_INCLUDE_DIR}/Kernel.h
-                ${LIB_INCLUDE_DIR}/KernelIntegrator.h)
+                ${LIB_INCLUDE_DIR}/Kernel.h)
 
 set(LIB_SOURCE_DIR ${fast-ibem_SOURCE_DIR}/src)
 set(LIBSOURCES 	${LIB_SOURCE_DIR}/CollocationAssembly.cpp
-                ${LIB_SOURCE_DIR}/KernelIntegrator.cpp
-		${LIBHEADERS})
+                ${LIBHEADERS})
 add_library(fastibem ${LIBSOURCES})
 target_link_libraries(fastibem ${THIS_LINK_LIBS})
 	

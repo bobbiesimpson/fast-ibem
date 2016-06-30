@@ -44,10 +44,12 @@ namespace fastibem {
         /// Construct with given mesh
         CollocationAssembly(const nurbs::Forest* f,
                             const K& k = K(),
-                            bool precompute = false)
+                            const unsigned& nt = std::thread::hardware_concurrency())
         :
         mMesh(f),
-        mKernel(k) {  if(f != nullptr) init(precompute); }
+        mKernel(k),
+        mMaxThreads(nt)
+        {  if(f != nullptr) init(); }
         
         /// Const forest getter
         const nurbs::Forest* forest() const { return mMesh; }
@@ -87,7 +89,7 @@ namespace fastibem {
             if(required_epairs.size() != 0) {
                 
                 // Otherwise, now do the actual computation for the required pairings
-                const auto availablethread_n = std::thread::hardware_concurrency();
+                const auto availablethread_n = maxAvailableThreads();
                 const auto bounds = calculateThreadBounds(availablethread_n, required_epairs.size());
                 const auto nthreads = bounds.size() - 1; // the actual number of threads we will use
                 
@@ -144,8 +146,8 @@ namespace fastibem {
             mJumpCache.clear();
         }
         
-        /// Init function for precomputation. Precompute all singular terms if requested.
-        void init(bool precompute)
+        /// Init function for precomputation. Precompute all singular terms.
+        void init()
         {
             const nurbs::Forest* f = forest();
             clear();
@@ -154,7 +156,7 @@ namespace fastibem {
             mConnectedEls.resize(f->globalDofN());
             
             for(uint ielem = 0; ielem < f->elemN(); ++ielem) {
-                const auto el = f->element(ielem);
+                const auto el = f->bezierElement(ielem);
                 const auto gbasisvec = el->globalBasisFuncI();
                 for(const auto& gindex : gbasisvec) {
                     mConnectedEls[gindex].push_back(ielem);
@@ -165,45 +167,44 @@ namespace fastibem {
                     insertGlobalToLocalCollocEntry(el->globalCollocI(icolloc), std::make_pair(ielem, icolloc));
             }
             
-            if(precompute) {
-                
-                // compute jump terms and add to cache
-                
-                const double jval = (f->geometry()->normalsFlipped()) ? -0.5 : 0.5;
-                for(uint ielem = 0; ielem < f->elemN(); ++ielem) {
-                    const auto el = f->element(ielem);
-                    for(uint icolloc = 0; icolloc < el->collocPtN(); ++icolloc) {
-                        const uint gcolloc_i = el->globalCollocI(icolloc);
-                        const nurbs::GPt2D parent_cpt = el->collocParentCoord(icolloc);
-                        const auto basis = el->basis(parent_cpt.s, parent_cpt.t);
-                        const auto gbasis_ivec = el->globalBasisFuncI();
-                        for(uint ibasis = 0; ibasis < basis.size(); ++ibasis) {
-                            const uint gbasis_i = gbasis_ivec[ibasis];
-                            DataType jterm = -jval * basis[ibasis];
-                            auto p = std::make_pair(gcolloc_i, gbasis_i);
-                            auto find = mJumpCache.find(p);
-                            if(find == mJumpCache.end())
-                                mJumpCache[p] = jterm;
-                        }
+            
+            // compute jump terms and add to cache
+            
+            const double jval = (f->geometry()->normalsFlipped()) ? -0.5 : 0.5;
+            for(uint ielem = 0; ielem < f->elemN(); ++ielem) {
+                const auto el = f->bezierElement(ielem);
+                for(uint icolloc = 0; icolloc < el->collocPtN(); ++icolloc) {
+                    const uint gcolloc_i = el->globalCollocI(icolloc);
+                    const nurbs::GPt2D parent_cpt = el->collocParentCoord(icolloc);
+                    const auto basis = el->basis(parent_cpt.s, parent_cpt.t);
+                    const auto gbasis_ivec = el->globalBasisFuncI();
+                    for(uint ibasis = 0; ibasis < basis.size(); ++ibasis) {
+                        const uint gbasis_i = gbasis_ivec[ibasis];
+                        DataType jterm = -jval * basis[ibasis];
+                        auto p = std::make_pair(gcolloc_i, gbasis_i);
+                        auto find = mJumpCache.find(p);
+                        if(find == mJumpCache.end())
+                            mJumpCache[p] = jterm;
                     }
                 }
-                
-                 // calculate all singular terms
-                const auto availablethread_n = std::thread::hardware_concurrency();
-                const auto bounds = calculateThreadBounds(availablethread_n, f->elemN());
-                const auto nthreads = bounds.size() - 1; // the actual number of threads we will use
-
-                std::vector<std::thread> threads;
-                for(uint ithread = 0; ithread < nthreads; ++ithread)
-                    threads.push_back(std::thread(&CollocationAssembly<K>::multithreadSingularWorker,
-                                                  this,
-                                                  bounds[ithread],
-                                                  bounds[ithread+1]));
-                
-                //std::cout << "Starting singular quadrature computations with " << nthreads << " threads...\n";
-                for(auto& t : threads)
-                    t.join();
             }
+            
+            // calculate all singular terms
+            const auto availablethread_n = maxAvailableThreads();
+            const auto bounds = calculateThreadBounds(availablethread_n, f->elemN());
+            const auto nthreads = bounds.size() - 1; // the actual number of threads we will use
+            
+            std::vector<std::thread> threads;
+            for(uint ithread = 0; ithread < nthreads; ++ithread)
+                threads.push_back(std::thread(&CollocationAssembly<K>::multithreadSingularWorker,
+                                              this,
+                                              bounds[ithread],
+                                              bounds[ithread+1]));
+            
+            //std::cout << "Starting singular quadrature computations with " << nthreads << " threads...\n";
+            for(auto& t : threads)
+                t.join();
+            
         }
         
         /// Multithread function for computing singular element contributions.
@@ -217,7 +218,7 @@ namespace fastibem {
             // loop over elements in range
             for(uint ielem = ilower; ielem < iupper; ++ielem) {
                 
-                const auto el = forest()->element(ielem); // pointer to element
+                const auto el = forest()->bezierElement(ielem); // pointer to element
                 const auto basisvec = el->globalBasisFuncI(); // global basis func. vector
                 
                 // loop over collocation points that lie within this element
@@ -232,10 +233,18 @@ namespace fastibem {
                         const nurbs::GPt2D gpt = igpt.get();
                         const nurbs::Point3D xf = el->eval(gpt);
                         const auto basis = el->basis(gpt.s, gpt.t);
-                        const auto normal = el->normal(gpt);
                         
+                        const auto t1 = el->tangent(gpt, nurbs::ParamDir::S);
+                        const auto t2 = el->tangent(gpt, nurbs::ParamDir::T);
+                        const auto m = cross(t1,t2);
+                        
+                        auto normal = m.asNormal();
+                        if(forest()->geometry()->normalsFlipped())
+                            normal *= -1.0;
+                        const auto jdet = m.length() * el->jacDetParam(gpt.s, gpt.t);
+                    
                         for(uint ibasis = 0; ibasis < el->basisFuncN(); ++ibasis) {
-                            qvec[ibasis] += kernel().evalDLP(xs, xf, normal) * basis[ibasis] * el->jacDet(gpt) * igpt.getWeight();
+                            qvec[ibasis] += kernel().evalDLP(xs, xf, normal) * basis[ibasis] * jdet * igpt.getWeight();
                             
 //                            const auto temp = kernel().evalDLP(xs, xf, normal) * basis[ibasis] * el->jacDet(gpt) * igpt.getWeight();
 //                            if(std::isnan(temp.real()) || std::isnan(temp.imag()))
@@ -272,7 +281,7 @@ namespace fastibem {
                 
                 const uint igcolloc = p.first;
                 const uint iel = p.second;
-                const auto el = forest()->element(iel);
+                const auto el = forest()->bezierElement(iel);
                 const auto gbasis_vec = el->globalBasisFuncI();
                 
                 // Now, through the collocation map, generate the collocation point physical coordinate
@@ -281,19 +290,31 @@ namespace fastibem {
                     throw std::runtime_error("Bad collocation mapping in CollocationAssembly");
                 const uint icel = colloc_conn.first.first;
                 const uint iclocal = colloc_conn.first.second;
-                const auto cel = forest()->element(icel);
+                const auto cel = forest()->bezierElement(icel);
                 const nurbs::GPt2D s_parent = cel->collocParentCoord(iclocal);
                 const nurbs::Point3D xs = cel->eval(s_parent);
                 
                 std::vector<DataType> qvec(gbasis_vec.size(), 0.0);
                 
                 for(nurbs::IElemIntegrate igpt(el->integrationOrder()); !igpt.isDone(); ++igpt) {
+                    
                     const nurbs::GPt2D gpt = igpt.get();
                     const nurbs::Point3D xf = el->eval(gpt);
                     const auto basis = el->basis(gpt.s, gpt.t);
-                    const auto normal = el->normal(gpt);
+                    
+//                    const auto normal = el->normal(gpt);
+//                    const auto jdet = el->jacDet(gpt);
+                    
+                    const auto t1 = el->tangent(gpt, nurbs::ParamDir::S);
+                    const auto t2 = el->tangent(gpt, nurbs::ParamDir::T);
+                    const auto m = cross(t1,t2);
+                    auto normal = m.asNormal();
+                    if(forest()->geometry()->normalsFlipped())
+                        normal *= -1.0;
+                    const auto jdet = m.length() * el->jacDetParam(gpt.s, gpt.t);
+                    
                     for(uint ibasis = 0; ibasis < el->basisFuncN(); ++ibasis) {
-                        qvec[ibasis] += kernel().evalDLP(xs, xf, normal) * basis[ibasis] * el->jacDet(gpt) * igpt.getWeight();
+                        qvec[ibasis] += kernel().evalDLP(xs, xf, normal) * basis[ibasis] * jdet * igpt.getWeight();
                         
 //                        const auto temp = kernel().evalDLP(xs, xf, normal) * basis[ibasis] * el->jacDet(gpt) * igpt.getWeight();
 //                        if(std::isnan(temp.real()) || std::isnan(temp.imag()))
@@ -435,6 +456,9 @@ namespace fastibem {
         /// Non -const forest getter
         const nurbs::Forest* forest() { return mMesh; }
         
+        //// max number of threads available
+        const unsigned& maxAvailableThreads() const { return mMaxThreads; }
+        
         /// Pointer to NURBS mesh
         const nurbs::Forest* mMesh;
         
@@ -461,6 +485,9 @@ namespace fastibem {
         
         /// The kernel instance
         const KernelType mKernel;
+        
+        /// Maximum number of threads
+        const unsigned mMaxThreads;
         
         /// The mutex for this class
         std::mutex mMutex;

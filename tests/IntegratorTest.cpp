@@ -83,8 +83,10 @@ int main(const int argc, const char* argv[])
         const real_t  eps  = real_t(1e-4);      // H-matrix precision
         
         // Helmholtz parameters
-        const double k = 10.0;                  // wavenumber
+        const double k = 1.0;                  // wavenumber
         const nurbs::Point3D d(1.0, 0.0, 0.0);  // direction of plane wave
+        
+        const unsigned max_threads = 24;
         
         INIT();
         CFG::set_verbosity( 3 );
@@ -106,7 +108,7 @@ int main(const int argc, const char* argv[])
         // h-refinement
         //
         uint refine = 0;
-        const uint max_refine = 5;
+        const uint max_refine = 10;
         if(argc > 2) {
             auto input = std::atoi(argv[2]);
             if(input < 0)
@@ -177,9 +179,14 @@ int main(const int argc, const char* argv[])
         // Kernel and assembly
         //
         fastibem::HelmholtzKernel hkernel(std::make_pair("k", k));
+        
+        // determine # threads for assembly
+        const unsigned available_threads = std::thread::hardware_concurrency();
+        const unsigned thread_n = (max_threads > available_threads) ? max_threads : available_threads;
+        
         fastibem::CollocationAssembly<fastibem::HelmholtzKernel> assembly(&forest,
                                                                           hkernel,
-                                                                          true);
+                                                                          thread_n);
 
         //
         // Hlibpro cluster tree setup
