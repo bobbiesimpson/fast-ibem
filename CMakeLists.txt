@@ -1,13 +1,15 @@
 cmake_minimum_required(VERSION 3.0)
 project(fast-ibem)
 
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
+
 # C++11 required to build this library
 set(CMAKE_CXX_FLAGS "-Wall -std=c++11")
 
 # Compiler-specific C++11 activation.
 if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU")
     execute_process(
-        COMMAND ${CMAKE_CXX_COM PILER} -dumpversion OUTPUT_VARIABLE GCC_VERSION)
+        COMMAND ${CMAKE_CXX_COMPILER} -dumpversion OUTPUT_VARIABLE GCC_VERSION)
     if (NOT (GCC_VERSION VERSION_GREATER 4.7 OR GCC_VERSION VERSION_EQUAL 4.7))
         message(FATAL_ERROR "${PROJECT_NAME} requires g++ 4.7 or greater.")
     endif ()
@@ -17,10 +19,37 @@ else ()
     message(FATAL_ERROR "Your C++ compiler does not support C++11.")
 endif ()
 
-find_package(Boost REQUIRED)
+find_package(Boost REQUIRED COMPONENTS filesystem iostreams system program_options)
 if( Boost_FOUND )
   include_directories(${Boost_INCLUDE_DIRS})
+  link_directories(${Boost_LIBRARY_DIRS})
   add_definitions( "-DHAS_BOOST" )
+  set(THIS_LINK_LIBS ${THIS_LINK_LIBS} ${Boost_LIBRARIES})
+endif()
+
+find_package(LAPACK)
+if(LAPACK_FOUND)
+  set(THIS_LINK_LIBS ${THIS_LINK_LIBS} ${LAPACK_LIBRARIES})
+endif()
+
+find_package(TBB)
+if(TBB_FOUND)
+  set(THIS_LINK_LIBS ${THIS_LINK_LIBS} ${TBB_LIBRARIES})
+endif()
+
+find_package(FFTW)
+if(FFTW_FOUND) 
+  set(THIS_LINK_LIBS ${THIS_LINK_LIBS} ${FFTW_LIBRARIES})
+endif()
+
+find_package(SCOTCH)
+if(SCOTCH_FOUND)
+  set(THIS_LINK_LIBS ${THIS_LINK_LIBS} ${SCOTCH_LIBRARIES})
+endif()
+
+find_package(METIS)
+if(METIS_FOUND)
+  set(THIS_LINK_LIBS ${THIS_LINK_LIBS} ${METIS_LIBRARIES})
 endif()
 
 set(hlibprodir "NOT-DEFINED" CACHE PATH "/opt")
@@ -28,7 +57,7 @@ include_directories(${hlibprodir}/include)
 link_directories(${hlibprodir}/lib)
 
 # add Eigen library include fileds
-include_directories(${fast-ibem-SOURCE_DIR}/libs/Eigen})
+include_directories(SYSTEM ${fast-ibem-SOURCE_DIR}/libs})
 
 # Add conforming nurbs submodule
 ADD_SUBDIRECTORY(${fast-ibem_SOURCE_DIR}/libs/conformingNurbs)
@@ -48,8 +77,9 @@ set(LIBSOURCES 	${LIB_SOURCE_DIR}/CollocationAssembly.cpp
 add_library(fastibem ${LIBSOURCES})
 target_link_libraries(fastibem ${THIS_LINK_LIBS})
 	
-add_executable(driver main.cpp)
-target_link_libraries(driver hpro)
+
+##add_executable(driver main.cpp)
+#target_link_libraries(driver hpro)
 
 INCLUDE(CTest)
 ADD_SUBDIRECTORY(tests)
