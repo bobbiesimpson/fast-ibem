@@ -219,6 +219,7 @@ namespace fastibem {
             for(uint ielem = ilower; ielem < iupper; ++ielem) {
                 
                 const auto el = forest()->bezierElement(ielem); // pointer to element
+                const auto degree_vec = el->degree();
                 const auto basisvec = el->globalBasisFuncI(); // global basis func. vector
                 
                 // loop over collocation points that lie within this element
@@ -229,7 +230,7 @@ namespace fastibem {
                     const auto cpt_parent = el->collocParentCoord(icolloc);
                     const nurbs::Point3D xs = el->eval(cpt_parent);
                     
-                    for(nurbs::IPolarIntegrate igpt(cpt_parent, el->integrationOrder()); !igpt.isDone(); ++igpt) {
+                    for(nurbs::IPolarIntegrate igpt(cpt_parent, degree_vec); !igpt.isDone(); ++igpt) {
                         const nurbs::GPt2D gpt = igpt.get();
                         const nurbs::Point3D xf = el->eval(gpt);
                         const auto basis = el->basis(gpt.s, gpt.t);
@@ -282,6 +283,7 @@ namespace fastibem {
                 const uint igcolloc = p.first;
                 const uint iel = p.second;
                 const auto el = forest()->bezierElement(iel);
+                const auto degree_vec = el->degree();
                 const auto gbasis_vec = el->globalBasisFuncI();
                 
                 // Now, through the collocation map, generate the collocation point physical coordinate
@@ -296,7 +298,7 @@ namespace fastibem {
                 
                 std::vector<DataType> qvec(gbasis_vec.size(), 0.0);
                 
-                for(nurbs::IElemIntegrate igpt(el->integrationOrder()); !igpt.isDone(); ++igpt) {
+                for(nurbs::IElemIntegrate igpt(degree_vec); !igpt.isDone(); ++igpt) {
                     
                     const nurbs::GPt2D gpt = igpt.get();
                     const nurbs::Point3D xf = el->eval(gpt);

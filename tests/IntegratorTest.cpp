@@ -78,12 +78,17 @@ int main(const int argc, const char* argv[])
 {
     try {
         
+        if(argc < 3) {
+            std::cerr << "Please use as ./integratorTest <inputfile> <wavenumber> <optional: # levels of h-refinement>";
+            return EXIT_FAILURE;
+        }
+        
         // solver parameters
         const size_t  nmin = 20;                // min block size
         const real_t  eps  = real_t(1e-4);      // H-matrix precision
-        
+
         // Helmholtz parameters
-        const double k = 1.0;                  // wavenumber
+        const double k = std::atof(argv[2]);
         const nurbs::Point3D d(1.0, 0.0, 0.0);  // direction of plane wave
         
         const unsigned max_threads = 24;
@@ -109,8 +114,8 @@ int main(const int argc, const char* argv[])
         //
         uint refine = 0;
         const uint max_refine = 10;
-        if(argc > 2) {
-            auto input = std::atoi(argv[2]);
+        if(argc > 3) {
+            auto input = std::atoi(argv[3]);
             if(input < 0)
                 std::cout << "Cannot supplied negative refinement integer. Carrying on with no h-refinement";
             if(input > max_refine) {

@@ -53,8 +53,13 @@ if(METIS_FOUND)
 endif()
 
 set(hlibprodir "NOT-DEFINED" CACHE PATH "/opt")
-include_directories(${hlibprodir}/include)
-link_directories(${hlibprodir}/lib)
+if(hlibprodir)
+    include_directories(${hlibprodir}/include)
+    link_directories(${hlibprodir}/lib)
+else()
+    message("HlibPro directory not defined")
+    return()
+endif()
 
 # add Eigen library include fileds
 include_directories(SYSTEM ${fast-ibem-SOURCE_DIR}/libs})
