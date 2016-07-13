@@ -44,7 +44,7 @@ namespace fastibem {
         /// Construct with given mesh
         CollocationAssembly(const nurbs::Forest* f,
                             const K& k = K(),
-                            const unsigned& nt = std::thread::hardware_concurrency())
+                            const unsigned& nt = 1/*std::thread::hardware_concurrency()*/)
         :
         mMesh(f),
         mKernel(k),
@@ -125,6 +125,7 @@ namespace fastibem {
                         throw std::runtime_error("Error: Requesting result for a (collocation,basis)"
                                                  " index pairing that was expected to be cached");
                     rmat[irow][icol] = cachedval.first;
+                    //eraseCache(igcolloc, igbasis);
                 }
             }
             return rmat;
@@ -221,7 +222,8 @@ namespace fastibem {
             for(uint ielem = ilower; ielem < iupper; ++ielem) {
                 
                 const auto el = forest()->bezierElement(ielem); // pointer to element
-                const auto degree_vec = el->degree();
+//                const auto degree_vec = el->degree();
+                const std::vector<unsigned> degree_vec{2,2};
                 const auto basisvec = el->globalBasisFuncI(); // global basis func. vector
                 
                 // loop over collocation points that lie within this element
@@ -285,7 +287,7 @@ namespace fastibem {
                 const uint igcolloc = p.first;
                 const uint iel = p.second;
                 const auto el = forest()->bezierElement(iel);
-                const auto degree_vec = el->degree();
+                const std::vector<unsigned> degree_vec{2,2};//el->degree();
                 const auto gbasis_vec = el->globalBasisFuncI();
                 
                 // Now, through the collocation map, generate the collocation point physical coordinate
@@ -335,8 +337,10 @@ namespace fastibem {
             // finally, cache the values using a mutex to prevent thread locking
             std::lock_guard<std::mutex> mutex(mMutex);
             for(const auto& t : data)
+            {
                 insertCacheVal(std::get<0>(t), std::get<1>(t), std::get<2>(t), std::get<3>(t));
-                //insertCachedEntry(std::make_pair(std::get<0>(t), std::get<1>(t)), std::get<2>(t));
+            }
+
         }
         
         /// Determine whether the value for a collocation index, basis index pairing
@@ -349,6 +353,13 @@ namespace fastibem {
                 return std::make_pair(search->second, true);
             else
                 return std::make_pair(DataType(), false);
+        }
+        
+        /// Erase cache entry
+        void eraseCache(const uint igcolloc,
+                        const uint igbasis)
+        {
+            mCache.erase(std::make_pair(igcolloc, igbasis));
         }
         
         /// Number of connected elements
