@@ -65,7 +65,7 @@ namespace fastibem {
             // Now fill in cached entries and determine which colloc pt, element index
             // pairings need to be computed.
             std::vector<std::pair<uint, uint>> required_epairs; // (cpt, element) index pairs required
-            std::vector<std::pair<uint, uint>> required_cbpairs;// (cpt, basis) index pairs required
+            //std::vector<std::pair<uint, uint>> required_cbpairs;// (cpt, basis) index pairs required
             
             for(uint icolloc = 0; icolloc < cindices.size(); ++icolloc) {
                 const uint gc_i = cindices[icolloc]; // global colloc. index
@@ -73,7 +73,7 @@ namespace fastibem {
                     const uint gb_i = bindices[ibasis]; // global basis index
                     const auto p = isCached(gc_i, gb_i);
                     if(!p.second) {
-                        required_cbpairs.push_back(std::make_pair(gc_i, gb_i));
+                        //required_cbpairs.push_back(std::make_pair(gc_i, gb_i));
                         const auto elvec = connectedEls(gb_i);
                         for(const auto& e : elvec)
                             required_epairs.push_back(std::make_pair(gc_i, e));
@@ -134,8 +134,6 @@ namespace fastibem {
         /// kernel getter
         const K& kernel() const { return mKernel; }
         
-    private:
-        
         void clear()
         {
             mCache.clear();
@@ -145,6 +143,10 @@ namespace fastibem {
             mTempComputedEls.clear();
             mJumpCache.clear();
         }
+        
+    private:
+        
+
         
         /// Init function for precomputation. Precompute all singular terms.
         void init()

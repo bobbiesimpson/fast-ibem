@@ -177,8 +177,8 @@ int main(const int argc, const char* argv[])
         
         // Output bounding box data
         nurbs::OutputVTK output("sphere_test");
-        output.outputGeometry(forest);
-        output.outputBoundingBoxSet(bbdata);
+//        output.outputGeometry(forest);
+//        output.outputBoundingBoxSet(bbdata);
 
         //
         // Kernel and assembly
@@ -227,6 +227,7 @@ int main(const int argc, const char* argv[])
         
         timer.start();
         auto  A = h_builder.build(bct.get(), acc, &progress);
+        assembly.clear();
         timer.pause();
         
         std::cout << "    done in " << timer << std::endl;
@@ -260,6 +261,7 @@ int main(const int argc, const char* argv[])
                     const auto phi_i = std::exp(std::complex<double>(0.0, k * nurbs::dot(d, xc)));
                     const auto cval = complex_t(phi_i.real(), phi_i.imag());
                     rhsmap[gindex] = cval;
+                    std::cout << phi_i << "\n";
                 }
             }
         }
