@@ -27,31 +27,6 @@ if( Boost_FOUND )
   set(THIS_LINK_LIBS ${THIS_LINK_LIBS} ${Boost_LIBRARIES})
 endif()
 
-find_package(LAPACK)
-if(LAPACK_FOUND)
-  set(THIS_LINK_LIBS ${THIS_LINK_LIBS} ${LAPACK_LIBRARIES})
-endif()
-
-find_package(TBB)
-if(TBB_FOUND)
-  set(THIS_LINK_LIBS ${THIS_LINK_LIBS} ${TBB_LIBRARIES})
-endif()
-
-find_package(FFTW)
-if(FFTW_FOUND) 
-  set(THIS_LINK_LIBS ${THIS_LINK_LIBS} ${FFTW_LIBRARIES})
-endif()
-
-find_package(SCOTCH)
-if(SCOTCH_FOUND)
-  set(THIS_LINK_LIBS ${THIS_LINK_LIBS} ${SCOTCH_LIBRARIES})
-endif()
-
-find_package(METIS)
-if(METIS_FOUND)
-  set(THIS_LINK_LIBS ${THIS_LINK_LIBS} ${METIS_LIBRARIES})
-endif()
-
 set(hlibprodir "NOT-DEFINED" CACHE PATH "/opt")
 if(hlibprodir)
     include_directories(${hlibprodir}/include)

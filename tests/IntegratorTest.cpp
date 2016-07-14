@@ -49,7 +49,7 @@ public:
         for(auto icol = 0; icol < m; ++icol)
             gbasis_vec.push_back(colidxs[icol]);
         
-        auto rmat = assemblyInstance()->eval(gcolloc_vec, gbasis_vec);
+        auto rmat = assemblyInstance()->evalWithoutCache(gcolloc_vec, gbasis_vec);
         
         for(size_t j = 0; j < m; ++j)
             for (size_t i = 0; i < n; ++i) {
