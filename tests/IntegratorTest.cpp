@@ -49,7 +49,7 @@ public:
         for(auto icol = 0; icol < m; ++icol)
             gbasis_vec.push_back(colidxs[icol]);
         
-        auto rmat = assemblyInstance()->evalWithoutCache(gcolloc_vec, gbasis_vec);
+        auto rmat = assemblyInstance()->evalHSubmatrix(gcolloc_vec, gbasis_vec);
         
         for(size_t j = 0; j < m; ++j)
             for (size_t i = 0; i < n; ++i) {
@@ -174,24 +174,13 @@ int main(const int argc, const char* argv[])
         for(uint i = 0; i < n; ++i)
             bbdata.push_back(std::make_pair(bbmin[i], bbmax[i]));
         std::unique_ptr<TCoordinate> coord(nurbs::make_unique<TCoordinate>(p_vertices, 3, p_bbmin, p_bbmax));
-        
-        // Output bounding box data
-        nurbs::OutputVTK output("sphere_test");
-//        output.outputGeometry(forest);
-//        output.outputBoundingBoxSet(bbdata);
 
         //
         // Kernel and assembly
         //
         fastibem::HelmholtzKernel hkernel(std::make_pair("k", k));
-        
-        // determine # threads for assembly
-        const unsigned available_threads = std::thread::hardware_concurrency();
-        const unsigned thread_n = (max_threads > available_threads) ? max_threads : available_threads;
-        
         fastibem::CollocationAssembly<fastibem::HelmholtzKernel> assembly(&forest,
-                                                                          hkernel,
-                                                                          thread_n);
+                                                                          hkernel);
 
         //
         // Hlibpro cluster tree setup
@@ -321,6 +310,9 @@ int main(const int argc, const char* argv[])
                 solnvec[i] = std::complex<double>(entry.re(), entry.im());
                 std::cout << entry.re() << "," << entry.im() << "\n";
             }
+            
+            // Output solution
+            nurbs::OutputVTK output("sphere_test");
             output.outputComplexAnalysisField(forest, "acoustic potential", solnvec);
         }
         else

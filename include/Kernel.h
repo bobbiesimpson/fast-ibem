@@ -4,6 +4,7 @@
 #include <complex>
 #include <algorithm>
 #include <complex>
+#include <map>
 
 #include "Point3D.h"
 #include "base.h"
@@ -19,11 +20,19 @@ namespace fastibem {
         
         /// Evaluation function which must be overloaded
         virtual T evalSLP(const nurbs::Point3D& xs,
-                       const nurbs::Point3D& xf) const = 0;
+                       const nurbs::Point3D& xf) const
+        {
+            throw std::runtime_error("Single layer potential function does not exist for this Kernel type");
+            return ReturnType();
+        }
         
         virtual T evalDLP(const nurbs::Point3D& xs,
                           const nurbs::Point3D& xf,
-                          const nurbs::Point3D& n) const = 0;
+                          const nurbs::Point3D& n) const
+        {
+            throw std::runtime_error("Double layer potential function does not exist for this Kernel type");
+            return ReturnType();
+        }
         
         void setMaterialProp(const std::string& s,
                              const double val)
@@ -108,6 +117,53 @@ namespace fastibem {
             const std::complex<double> const1(0.0, wavenumber() * r);
             const double drdn = nurbs::dot((xf-xs) / r, n);
             return std::exp(const1) / (4.0 * nurbs::PI * r * r ) * (1.0 - const1) * drdn;
+        }
+        
+    private:
+        
+        double wavenumber() const { return mWavenumber; }
+        
+        double mWavenumber;
+        
+    };
+    
+    ///
+    /// Electromagnetic kernel
+    ///
+    class EmagKernel : public Kernel<std::complex<double>> {
+        
+    public:
+        
+        /// Default constructor
+        EmagKernel()
+        : EmagKernel(std::make_pair("k", 1.0))
+        {
+            std::cout << "Constructing default electromagnetic kernel with wavenumber of 1.0\n";
+        }
+        
+        /// Construct with pair hopefully containing the wavenumber
+        EmagKernel(const std::pair<std::string, double>& m)
+        : Kernel<std::complex<double>>(m)
+        {
+            std::string s = m.first;
+            std::transform(s.begin(),
+                           s.end(),
+                           s.begin(),
+                           ::tolower);
+            if(s != "wavenumber" && s != "k") {
+                throw std::runtime_error("Must specify wavenumber during Helmholtz kernel construction with "
+                                         "string specifier 'wavenumber' or 'k'. Setting default value of 1.0");
+                mWavenumber = 1.0;
+            }
+            else
+                mWavenumber = m.second;
+        }
+        
+        ReturnType evalSLP(const nurbs::Point3D& xs,
+                           const nurbs::Point3D& xf) const
+        {
+            const double r = dist(xs, xf);
+            return std::exp(std::complex<double>(0.0, 1.0 * wavenumber() * r)) / (4.0 * nurbs::PI * r);
         }
         
     private:
