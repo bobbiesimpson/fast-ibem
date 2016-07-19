@@ -171,8 +171,14 @@ int main(const int argc, const char* argv[])
         
         // now push data into a vector and create TCoordinate vector
         std::vector<std::pair<nurbs::Point3D, nurbs::Point3D>> bbdata;
+        
         for(uint i = 0; i < n; ++i)
             bbdata.push_back(std::make_pair(bbmin[i], bbmax[i]));
+        
+        // output bb data to VTU file.
+//        nurbs::OutputVTK bout("forest");
+//        bout.outputBoundingBoxSet(bbdata);
+        
         std::unique_ptr<TCoordinate> coord(nurbs::make_unique<TCoordinate>(p_vertices, 3, p_bbmin, p_bbmax));
 
         //
