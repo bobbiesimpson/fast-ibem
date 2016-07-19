@@ -22,16 +22,16 @@ namespace fastibem {
     public:
         
         /// Function that generates the LHS matrix
-        virtual std::unique_ptr<HLIB::TMatrix> generateHmatrix() = 0;
+        virtual std::unique_ptr<HLIB::TMatrix> assembleHmatrix() const = 0;
         
         /// Function that generates RHS matrix
-        virtual std::unique_ptr<HLIB::TMatrix> generateGmatrix()
+        virtual std::unique_ptr<HLIB::TMatrix> assembleGmatrix() const
         {
             throw std::runtime_error("generateGMatrix() function has not been implemented for this class");
         }
         
         /// Generate the RHS force vector
-        virtual std::unique_ptr<HLIB::TVector> generateForceVector() = 0;
+        virtual void assembleForceVector(HLIB::TVector* fvec) const = 0;
         
         /// Get the block cluster tree
         const HLIB::TBlockClusterTree* blockClusterTree() const
@@ -198,22 +198,23 @@ namespace fastibem {
         mPolarVec(pvec),
         mMu(mu),
         mOmega(omega),
-        mKernel(wvec.length())
+        mKernel(wvec.length()),
+        mMultiForest(f)
         {}
         
         /// Function that generates the LHS matrix
-        virtual std::unique_ptr<HLIB::TMatrix> generateHmatrix() override;
+        virtual std::unique_ptr<HLIB::TMatrix> assembleHmatrix() const override;
 
         
         /// Generate the RHS force vector
-        virtual std::unique_ptr<HLIB::TVector> generateForceVector() override;
+        virtual void assembleForceVector(HLIB::TVector* f) const override;
         
         
     private:
         
         /// Evaluate the submatrix for the given row and column indices
         MatrixType evalSubmatrix(const std::vector<uint>& rows,
-                                 const std::vector<uint>& cols);
+                                 const std::vector<uint>& cols) const;
         /// The wavevector accessor
         const nurbs::Point3D& wavevector() const { return mWaveVec; }
         
@@ -225,6 +226,9 @@ namespace fastibem {
         
         /// Omega (angular frequency) accessor
         const double omega() const { return mOmega; }
+        
+        /// Multiforest accessor
+        const nurbs::MultiForest& forest() const { return mMultiForest; }
         
         /// The wavevector
         const nurbs::Point3D mWaveVec;
@@ -239,7 +243,10 @@ namespace fastibem {
         const double mOmega;
         
         /// The kernel instance
-        fastibem::EmagKernel mKernel;
+        const fastibem::EmagKernel mKernel;
+        
+        /// Reference to multiforest
+        const nurbs::MultiForest& mMultiForest;
         
         /// Nested class that represents emag Hmatrix coefficients
         class EmagCoeffFn : public HLIB::TPermCoeffFn<HLIB::complex> {
@@ -250,7 +257,7 @@ namespace fastibem {
             typedef HAssemblyEmag AssemblyType;
             
             // Constructor
-            EmagCoeffFn(AssemblyType* a,
+            EmagCoeffFn(const AssemblyType* a,
                         const HLIB::TPermutation* row_perm,
                         const HLIB::TPermutation* col_perm)
             :
@@ -292,10 +299,10 @@ namespace fastibem {
         private:
             
             /// assembly instance getter
-            AssemblyType* assemblyInstance() const { return mpAssembly; }
+            const AssemblyType* assemblyInstance() const { return mpAssembly; }
             
             /// Pointer to non-owning assembly instance
-            AssemblyType* mpAssembly;
+            const AssemblyType* mpAssembly;
         };
         
     };

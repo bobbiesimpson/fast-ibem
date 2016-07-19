@@ -74,13 +74,10 @@ int main(int argc, char* argv[])
                                       mu,
                                       omega);
     
-    auto A = hassembly.generateHmatrix();
-    auto f = hassembly.generateForceVector();
+    auto A = hassembly.assembleHmatrix();
+    auto f = A->row_vector();
     
-    // TODO: using a nodal forest to construct the bounding box data
-    // does not work directly since #dof nodal forest != 2 * #nof multiforest
-    
-    return EXIT_SUCCESS;
+    hassembly.fastibem::HAssembly::assembleForceVector(f.get());
     
     // Now solve!
     HLIB::TTimer                    timer( HLIB::WALL_TIME );

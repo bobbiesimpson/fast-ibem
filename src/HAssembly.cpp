@@ -2,7 +2,7 @@
 
 namespace fastibem {
     
-    std::unique_ptr<HLIB::TMatrix> HAssemblyEmag::generateHmatrix()
+    std::unique_ptr<HLIB::TMatrix> HAssemblyEmag::assembleHmatrix() const
     {
         std::cout << "━━ building H-matrix ( eps = " << precision() << " )" << std::endl;
         
@@ -23,27 +23,21 @@ namespace fastibem {
         return A;
     }
     
-    std::unique_ptr<HLIB::TVector> HAssemblyEmag::generateForceVector()
+    void HAssemblyEmag::assembleForceVector(HLIB::TVector* f) const
     {
-        std::unique_ptr<HLIB::TVector> fvec;
-        
-        //clusterTree()->perm_e2i()->permute( fvec.get() );
-        return fvec;
+        assert(f->size() == forest().globalDofN());
+        clusterTree()->perm_e2i()->permute(f);
     }
     
     HAssemblyEmag::MatrixType HAssemblyEmag::evalSubmatrix(const std::vector<uint>& rows,
-                                                           const std::vector<uint>& cols)
+                                                           const std::vector<uint>& cols) const
     {
         // Evaluate emag BE terms through Galerkin quadrature routines
-        git 
         
-        
-        
-        
-        
-        
-        
-        return MatrixType();
+        MatrixType matrix(rows.size());
+        for(size_t i = 0; i < rows.size(); ++i)
+            matrix[i].resize(cols.size());
+        return matrix;
     }
     
 }
