@@ -159,6 +159,13 @@ namespace fastibem {
                 mWavenumber = m.second;
         }
         
+        /// Construct with double
+        EmagKernel(const double k)
+        :
+        EmagKernel(std::make_pair("k", k))
+        {}
+        
+        /// The single layer potential
         ReturnType evalSLP(const nurbs::Point3D& xs,
                            const nurbs::Point3D& xf) const
         {

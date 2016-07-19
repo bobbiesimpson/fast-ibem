@@ -29,18 +29,21 @@ namespace fastibem {
         
     public:
         
+        /// Evaluate the submatrix of the LHS matrix
         virtual std::vector<std::vector<DataType>> evalSubmatrixLHS(const std::vector<uint>& rows,
                                                                     const std::vector<uint>& cols) const
         {
             throw std::runtime_error("evalSubmatrixLHS() is not implemented for this class");
         }
         
+        /// Evaluate the submatrix of the RHS matrix
         virtual std::vector<std::vector<DataType>> evalSubmatrixRHS(const std::vector<uint>& rows,
                                                                     const std::vector<uint>& cols) const
         {
             throw std::runtime_error("evalSubmatrixRHS() is not implemented for this class");
         }
         
+        /// Evaluat the global force vector
         virtual std::vector<DataType> evalForceVec(const Functor<DataType>& func) const
         {
             throw std::runtime_error("evalForceVec() is not implemented for this class");
@@ -51,6 +54,7 @@ namespace fastibem {
         
     protected:
         
+        /// Abstract class therefore constructor is protected.
         GalerkinAssembly(const KernelType& k)
         :
         mKernel(k) {}
@@ -76,19 +80,18 @@ namespace fastibem {
         virtual std::vector<std::vector<DataType>> evalSubmatrixLHS(const std::vector<uint>& rows,
                                                                     const std::vector<uint>& cols) const
         {
-            return std::vector<std::vector<DataType>>{};
-        }
-        
-        virtual std::vector<std::vector<DataType>> evalSubmatrixRHS(const std::vector<uint>& rows,
-                                                                    const std::vector<uint>& cols) const
-        {
+            // TODO: implement equivalent routine as in collocation assembly whereby
+            // we integrate over all connected elements and simply discard any terms we
+            // don't need.
+            
+            // We need to determine when to apply each of the singular quadrature
+            // transformations (vertex,edge,identical elements).
+            
             return std::vector<std::vector<DataType>>{};
         }
         
         virtual std::vector<DataType> evalForceVec(const Functor<DataType>& func) const
-        {
-            return std::vector<DataType>{};
-        }
+        { return std::vector<DataType>{}; }
         
     };
     

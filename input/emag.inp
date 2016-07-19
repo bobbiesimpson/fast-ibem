@@ -1,0 +1,6 @@
+emag
+sphere.dat
+hrefine 1
+wavenumber 1
+polarvec (1 0 0)
+wavevec (0 1 0)
