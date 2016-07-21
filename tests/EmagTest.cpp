@@ -133,9 +133,8 @@ int main(int argc, char* argv[])
         }
         
         // Output solution
-        nurbs::OutputVTK output("sphere_test");
-        //output.outputComplexVectorField(multiforest, "surface current", solnvec);
-        //output.outputComplexAnalysisField(forest, "acoustic potential", solnvec);
+        nurbs::OutputVTK output("emagtest");
+        output.outputComplexVectorField(multiforest, "surface_current", solnvec);
     }
     else
         std::cout << "  not converged in " << timer << " and "

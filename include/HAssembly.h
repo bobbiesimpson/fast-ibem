@@ -219,7 +219,8 @@ namespace fastibem {
                       const nurbs::Point3D& pvec,
                       const double mu,
                       const double omega,
-                      const std::vector<unsigned>& qorder = {2,2},
+                      const std::vector<unsigned>& qorder = {4,4},
+                      const std::vector<unsigned>& nsubcells = {4,2},
                       bool cache = false)
         :
         HAssembly(f, qorder, cache),
@@ -227,7 +228,8 @@ namespace fastibem {
         mPolarVec(pvec),
         mMu(mu),
         mOmega(omega),
-        mKernel(wvec.length()),
+        mWavenumber(wvec.length()),
+        mDefaultSubcellN(nsubcells),
         mMultiForest(f)
         {}
         
@@ -244,12 +246,41 @@ namespace fastibem {
         /// Evaluate the submatrix for the given row and column indices
         MatrixType evalSubmatrix(const std::vector<uint>& rows,
                                  const std::vector<uint>& cols) const;
-                    
+        
+        /// For the given source and field element with an edge
+        /// singularity, evaluate the emag kernel and assemble
+        /// terms into the given matrix
+        void evalEdgeSingularity(const unsigned isrcel,
+                                 const unsigned ifieldel,
+                                 const nurbs::Edge e1,
+                                 const nurbs::Edge e2,
+                                 const std::map<unsigned, int>& g2locals,
+                                 const std::map<unsigned, int>& g2localf,
+                                 MatrixType& mat) const;
+        
+        /// For the given source and field element with an vertex
+        /// singularity, evaluate the emag kernel and assemble
+        /// terms into the given matrix
+        void evalVertexSingularity(const unsigned isrcel,
+                                   const unsigned ifieldel,
+                                   const nurbs::Vertex v2,
+                                   const std::map<unsigned, int>& g2locals,
+                                   const std::map<unsigned, int>& g2localf,
+                                   MatrixType& mat) const;
+        
+        /// For the given source and field element which are
+        /// coincident, evaluate the emag kernel and assemble
+        /// terms into the given matrix
+        void evalCoincidentSingularity(const unsigned iel,
+                                       const std::map<unsigned, int>& g2locals,
+                                       const std::map<unsigned, int>& g2localf,
+                                       MatrixType& mat) const;
+        
         /// The wavevector accessor
         const nurbs::Point3D& wavevector() const { return mWaveVec; }
         
         /// Get the wavenumber
-        const double wavenumber() const { return wavevector().length(); }
+        const double wavenumber() const { return mWavenumber; }
         
         /// The polarisation vector accessor
         const nurbs::Point3D& polarvector() const { return mPolarVec; }
@@ -263,6 +294,9 @@ namespace fastibem {
         /// Multiforest accessor
         const nurbs::MultiForest& forest() const { return mMultiForest; }
         
+        /// Subcell number accessor
+        const nurbs::UIntVec& defaultSubcellN() const { return mDefaultSubcellN; }
+        
         /// The wavevector
         const nurbs::Point3D mWaveVec;
         
@@ -275,9 +309,12 @@ namespace fastibem {
         /// Omega (angular frequency)
         const double mOmega;
         
-        /// The kernel instance
-        const fastibem::EmagKernel mKernel;
+        /// The wavenumber (i.e. k)
+        const double mWavenumber;
         
+        /// Default number of subcells used for polar integration
+        const nurbs::UIntVec mDefaultSubcellN;
+
         /// Reference to multiforest
         const nurbs::MultiForest& mMultiForest;
         
@@ -331,6 +368,7 @@ namespace fastibem {
             
         private:
             
+
             /// assembly instance getter
             const AssemblyType* assemblyInstance() const { return mpAssembly; }
             
@@ -339,16 +377,7 @@ namespace fastibem {
         };
         
     };
-    
-    /// Helper function to compute required component for quadrature
-    /// routines
-    void computeQuadratureComponents(const nurbs::VAnalysisElement* el,
-                                     const nurbs::GPt2D& gp,
-                                     nurbs::Point3D& x,
-                                     std::vector<std::vector<double>>& basis,
-                                     std::vector<std::vector<double>>& derivs,
-                                     std::vector<std::vector<double>>& derivt,
-                                     double& jdet);
+
 }
 
 #endif

@@ -7,6 +7,7 @@
 #include "IVertexQuadrature.h"
 #include "IEqualQuadrature.h"
 #include "IRegularQuadrature.h"
+#include "IPolarIntegrate.h"
 #include "Functor.h"
 
 namespace fastibem {
@@ -51,7 +52,6 @@ namespace fastibem {
             for(unsigned ielem = 0; ielem < forest().elemN(); ++ielem)
             {
                 const auto p_el = forest().bezierElement(ielem);
-//                const auto tempel = forest().element(ielem);
                 
                 const auto econn = p_el->globalBasisFuncI();
                 
@@ -80,13 +80,9 @@ namespace fastibem {
             }
         }
         
-        // copy across to TVector
-//        std::cout << "force vector\n\n";
         for(size_t i = 0; i < ftemp.size(); ++i)
-        {
-//            std::cout << ftemp[i] << "\n";
             f->set_centry(i, HLIB::complex(ftemp[i].real(), ftemp[i].imag()));
-        }
+
         clusterTree()->perm_e2i()->permute(f);
     }
     
@@ -98,11 +94,7 @@ namespace fastibem {
         for(size_t i = 0; i < rows.size(); ++i)
             matrix[i].resize(cols.size());
         
-        // Default quadrature order
-        const auto& sorder = defaultQuadratureOrder();
-        const auto& forder = sorder;
-        //const std::vector<unsigned> forder{6,6};
-        
+        const auto k = wavenumber();
         
         // Vectors of source (test) and field (trial) elements we must compute
         std::vector<unsigned> isrc_els;
@@ -166,7 +158,9 @@ namespace fastibem {
         
         // now compute the sets of coincident, edge adjacent
         // and vertex adjacent integrals along with the required edges/vertices.
-        std::vector<std::tuple<unsigned, unsigned, std::unique_ptr<nurbs::IGalerkinIntegrate>>> singular_elvec;
+        std::vector<std::tuple<unsigned, unsigned, nurbs::Vertex>> vertex_integrals;
+        std::vector<std::tuple<unsigned, unsigned, nurbs::Edge, nurbs::Edge>> edge_integrals;
+        std::vector<unsigned> coincident_integrals;
         
         // The sets of regular source and field elements
         std::map<unsigned, std::vector<unsigned>> regular_elmap;
@@ -186,113 +180,52 @@ namespace fastibem {
                 
                 // edge singularity
                 if(nurbs::edgeConnected(*p_srcel, *p_fieldel, e1, e2))
-                    singular_elvec.push_back(std::make_tuple(igsrcel,
-                                                             igfieldel,
-                                                             nurbs::make_unique<nurbs::IEdgeQuadrature>(sorder,
-                                                                                                        forder,
-                                                                                                    e1,
-                                                                                                    e2)));
-                
+                    edge_integrals.push_back(std::make_tuple(igsrcel, igfieldel, e1, e2));
+
                 // vertex singularity
                 else if(nurbs::vertexConnected(*p_srcel, *p_fieldel, v1, v2))
-                    singular_elvec.push_back(std::make_tuple(igsrcel,
-                                                             igfieldel,
-                                                             nurbs::make_unique<nurbs::IVertexQuadrature>(sorder,
-                                                                                                        forder,
-                                                                                                        v1,
-                                                                                                        v2)));
+                    vertex_integrals.push_back(std::make_tuple(igsrcel, igfieldel, v2));
                 
                 // coincident singularity
                 else if(igsrcel == igfieldel)
-                    singular_elvec.push_back(std::make_tuple(igsrcel,
-                                                             igfieldel,
-                                                             nurbs::make_unique<nurbs::IEqualQuadrature>(sorder,
-                                                                                                         forder)));
+                    coincident_integrals.push_back(igsrcel);
                 
                 // regular integral
                 else
                     regular_elmap[igsrcel].push_back(igfieldel);
             }
         }
-
         
-        const auto k = wavenumber();
+        // evaluate edge singularity elements
+        for(const auto& tuple : edge_integrals)
+            evalEdgeSingularity(std::get<0>(tuple),
+                                std::get<1>(tuple),
+                                std::get<2>(tuple),
+                                std::get<3>(tuple),
+                                g2local_src,
+                                g2local_field,
+                                matrix);
         
-        // now loop over all singular integrals
-        for(auto& tuple : singular_elvec)
-        {
-            const auto& igsrcel = std::get<0>(tuple);
-            const auto& igfieldel = std::get<1>(tuple);
-            
-            const auto p_sel = forest().bezierElement(igsrcel);
-            const auto p_fel = forest().bezierElement(igfieldel);
-            
-            // connectivity
-            const auto& sconn = p_sel->globalBasisFuncI();
-            const auto& fconn = p_fel->globalBasisFuncI();
         
-            // the quadrature instance
-            auto& igpt = std::get<2>(tuple);
-            
-            for(; !igpt->isDone(); ++(*igpt))
-            {
-                const auto gpt4d = igpt->get();
-                const auto sparent = gpt4d.srcPt();
-                const auto fparent = gpt4d.fieldPt();
-                const auto w = igpt->getWeight();
-                
-                // physical coordinates
-                const auto x = p_sel->eval(sparent);
-                const auto y = p_fel->eval(fparent);
-                
-                // jacobian determinants
-                const double jdet_s = p_sel->jacDet(sparent);
-                const double jdet_f = p_fel->jacDet(fparent);
-                
-                // basis fn derivatives
-                const auto ds_s = p_sel->localBasisDers(sparent.s, sparent.t, nurbs::DerivType::DS);
-                const auto dt_s = p_sel->localBasisDers(sparent.s, sparent.t, nurbs::DerivType::DT);
-                
-                const auto ds_f = p_fel->localBasisDers(fparent.s, fparent.t, nurbs::DerivType::DS);
-                const auto dt_f = p_fel->localBasisDers(fparent.s, fparent.t, nurbs::DerivType::DT);
-                
-                // basis functions
-                const auto basis_s = p_sel->basis(sparent.s, sparent.t);
-                const auto basis_f = p_fel->basis(fparent.s, fparent.t);
-                
-                // kernel
-                const double r = dist(x, y);
-                const auto ekernel = std::exp(std::complex<double>(0.0, k * r)) / (4.0 * nurbs::PI * r);
-                
-                // now loop over test and trial functions
-                for(size_t itest = 0; itest < sconn.size(); ++itest)
-                {
-                    const auto igbasis_s = sconn[itest];
-                    const auto ilocal_s = g2local_src[igbasis_s];
-                    if(ilocal_s == -1)
-                        continue;
-                    
-                    // divergence (source)
-                    const double div_s = (ds_s[itest][0] + dt_s[itest][1]);
-
-                    for(size_t itrial = 0; itrial < fconn.size(); ++itrial)
-                    {
-                        const auto igbasis_f = fconn[itrial];
-                        const auto ilocal_f = g2local_field[igbasis_f];
-                        if(ilocal_f == -1)
-                            continue;
-                        
-                        // divergence (field)
-                        const double div_f = (ds_f[itrial][0] + dt_f[itrial][1]);
-                        
-                        for(unsigned i = 0; i < 3; ++i)
-                            matrix[ilocal_s][ilocal_f] += ekernel * basis_s[itest][i] * basis_f[itrial][i] * jdet_s * jdet_f * w;
-                        matrix[ilocal_s][ilocal_f] -= 1.0 / (k * k) * div_s * div_f * ekernel * w;
-                        
-                    }
-                }
-            }
-        }
+        // evaluate vertex elements
+        for(const auto& tuple : vertex_integrals)
+            evalVertexSingularity(std::get<0>(tuple),
+                                  std::get<1>(tuple),
+                                  std::get<2>(tuple),
+                                  g2local_src,
+                                  g2local_field,
+                                  matrix);
+                                  
+        // evaluate coincidnet elements
+        for(const auto& iel : coincident_integrals)
+            evalCoincidentSingularity(iel,
+                                      g2local_src,
+                                      g2local_field,
+                                      matrix);
+        
+        // Default quadrature order
+        const nurbs::UIntVec forder{2,2};
+        const auto& sorder = defaultQuadratureOrder();
         
         // and finally loop over all regular integrals
         for(nurbs::IElemIntegrate igpt_s(sorder); !igpt_s.isDone(); ++igpt_s)
@@ -308,13 +241,12 @@ namespace fastibem {
                 const auto& sconn = p_sel->globalBasisFuncI();
                 
                 // source element parameters
-                nurbs::Point3D x;
-                nurbs::DoubleVecVec basis_s;
-                nurbs::DoubleVecVec ds_s;
-                nurbs::DoubleVecVec dt_s;
-                double jdet_s;
-                computeQuadratureComponents(p_sel, sparent, x, basis_s, ds_s, dt_s, jdet_s);
-                
+                const auto x = p_sel->eval(sparent);
+                const auto& basis_s = p_sel->basis(sparent.s, sparent.t);
+                const auto& ds_s = p_sel->localBasisDers(sparent.s, sparent.t, nurbs::DerivType::DS);
+                const auto& dt_s = p_sel->localBasisDers(sparent.s, sparent.t, nurbs::DerivType::DT);
+                const double jdet_s = p_sel->jacDet(sparent);
+
                 // integrate over field elements
                 for(nurbs::IElemIntegrate igpt_f(forder); !igpt_f.isDone(); ++igpt_f)
                 {
@@ -327,12 +259,11 @@ namespace fastibem {
                         const auto p_fel = forest().bezierElement(igfieldel);
                         const auto& fconn = p_fel->globalBasisFuncI();
                         
-                        nurbs::Point3D y;
-                        nurbs::DoubleVecVec basis_f;
-                        nurbs::DoubleVecVec ds_f;
-                        nurbs::DoubleVecVec dt_f;
-                        double jdet_f;
-                        computeQuadratureComponents(p_fel, fparent, y, basis_f, ds_f, dt_f, jdet_f);
+                        const auto y = p_fel->eval(fparent);
+                        const auto& basis_f = p_fel->basis(fparent.s, fparent.t);
+                        const auto& ds_f = p_fel->localBasisDers(fparent.s, fparent.t, nurbs::DerivType::DS);
+                        const auto& dt_f = p_fel->localBasisDers(fparent.s, fparent.t, nurbs::DerivType::DT);
+                        const double jdet_f = p_fel->jacDet(fparent);
 
                         // kernel
                         const double r = dist(x, y);
@@ -372,18 +303,246 @@ namespace fastibem {
         return matrix;
     }
     
-    void computeQuadratureComponents(const nurbs::VAnalysisElement* el,
-                                     const nurbs::GPt2D& gp,
-                                     nurbs::Point3D& x,
-                                     std::vector<std::vector<double>>& basis,
-                                     std::vector<std::vector<double>>& derivs,
-                                     std::vector<std::vector<double>>& derivt,
-                                     double& jdet)
+    void HAssemblyEmag::evalEdgeSingularity(const unsigned isrcel,
+                                            const unsigned ifieldel,
+                                            const nurbs::Edge e1,
+                                            const nurbs::Edge e2,
+                                            const std::map<unsigned, int>& g2locals,
+                                            const std::map<unsigned, int>& g2localf,
+                                            MatrixType& mat) const
     {
-        x = el->eval(gp);
-        basis = el->basis(gp.s, gp.t);
-        derivs = el->localBasisDers(gp.s, gp.t, nurbs::DerivType::DS);
-        derivt = el->localBasisDers(gp.s, gp.t, nurbs::DerivType::DT);
-        jdet = el->jacDet(gp);
+        const auto& forder = defaultQuadratureOrder();
+//        const nurbs::UIntVec forder{2,2};
+        const auto& sorder = defaultQuadratureOrder();
+        const auto& nsubcells = defaultSubcellN();
+        
+        const double k = wavenumber();
+        
+        // source element and connectivity
+        const auto p_sel = forest().bezierElement(isrcel);
+        const auto& sconn = p_sel->globalBasisFuncI();
+        
+        // field element and connectivity
+        const auto p_fel = forest().bezierElement(ifieldel);
+        const auto& fconn = p_fel->globalBasisFuncI();
+        
+        // and finally loop over all regular integrals
+        for(nurbs::IElemIntegrate igpt_s(sorder); !igpt_s.isDone(); ++igpt_s)
+        {
+            const auto sparent = igpt_s.get();
+            const auto sw = igpt_s.getWeight();
+        
+            // source element parameters
+            const auto x = p_sel->eval(sparent);
+            const auto& basis_s = p_sel->basis(sparent.s, sparent.t);
+            const auto& ds_s = p_sel->localBasisDers(sparent.s, sparent.t, nurbs::DerivType::DS);
+            const auto& dt_s = p_sel->localBasisDers(sparent.s, sparent.t, nurbs::DerivType::DT);
+            const double jdet_s = p_sel->jacDet(sparent);
+            
+            // integrate over field elements
+            for(nurbs::IPolarIntegrate igpt_f(nurbs::projectPt(sparent, e1, e2), forder, nsubcells); !igpt_f.isDone(); ++igpt_f)
+            {
+                const auto fparent = igpt_f.get();
+                const auto fw = igpt_f.getWeight();
+            
+                // field element parameters
+                const auto y = p_fel->eval(fparent);
+                const auto& basis_f = p_fel->basis(fparent.s, fparent.t);
+                const auto& ds_f = p_fel->localBasisDers(fparent.s, fparent.t, nurbs::DerivType::DS);
+                const auto& dt_f = p_fel->localBasisDers(fparent.s, fparent.t, nurbs::DerivType::DT);
+                const double jdet_f = p_fel->jacDet(fparent);
+                
+                // kernel
+                const double r = dist(x, y);
+                const auto ekernel = std::exp(std::complex<double>(0.0, k * r)) / (4.0 * nurbs::PI * r);
+                
+                // now loop over test and trial functions
+                for(size_t itest = 0; itest < sconn.size(); ++itest)
+                {
+                    const auto igbasis_s = sconn[itest];
+                    const auto ilocal_s = g2locals.at(igbasis_s);
+                    if(ilocal_s == -1)
+                        continue;
+                    
+                    // divergence (source)
+                    const double div_s = (ds_s[itest][0] + dt_s[itest][1]);
+                    
+                    for(size_t itrial = 0; itrial < fconn.size(); ++itrial)
+                    {
+                        const auto igbasis_f = fconn[itrial];
+                        const auto ilocal_f = g2localf.at(igbasis_f);
+                        if(ilocal_f == -1)
+                            continue;
+                        
+                        // divergence (field)
+                        const double div_f = (ds_f[itrial][0] + dt_f[itrial][1]);
+                        
+                        for(unsigned i = 0; i < 3; ++i)
+                            mat[ilocal_s][ilocal_f] += ekernel * basis_s[itest][i] * basis_f[itrial][i] * jdet_s * jdet_f * sw * fw;
+                        mat[ilocal_s][ilocal_f] -= 1.0 / (k * k) * div_s * div_f * ekernel * sw * fw;
+                        
+                    }
+                }
+            }
+        }
     }
+    
+    void HAssemblyEmag::evalVertexSingularity(const unsigned isrcel,
+                                              const unsigned ifieldel,
+                                              const nurbs::Vertex v2,
+                                              const std::map<unsigned, int>& g2locals,
+                                              const std::map<unsigned, int>& g2localf,
+                                              MatrixType& mat) const
+    {
+        const auto& forder = defaultQuadratureOrder();
+//        const nurbs::UIntVec forder{2,2};
+        const auto& sorder = defaultQuadratureOrder();
+        const auto& nsubcells = defaultSubcellN();
+        
+        const double k = wavenumber();
+        
+        const auto p_sel = forest().bezierElement(isrcel);
+        const auto& sconn = p_sel->globalBasisFuncI();
+        
+        const auto p_fel = forest().bezierElement(ifieldel);
+        const auto& fconn = p_fel->globalBasisFuncI();
+        
+        // and finally loop over all regular integrals
+        for(nurbs::IElemIntegrate igpt_s(sorder); !igpt_s.isDone(); ++igpt_s)
+        {
+            const auto sparent = igpt_s.get();
+            const auto sw = igpt_s.getWeight();
+            
+            // source element parameters
+            const auto x = p_sel->eval(sparent);
+            const auto& basis_s = p_sel->basis(sparent.s, sparent.t);
+            const auto& ds_s = p_sel->localBasisDers(sparent.s, sparent.t, nurbs::DerivType::DS);
+            const auto& dt_s = p_sel->localBasisDers(sparent.s, sparent.t, nurbs::DerivType::DT);
+            const double jdet_s = p_sel->jacDet(sparent);
+            
+            // integrate over field elements
+            for(nurbs::IPolarIntegrate igpt_f(nurbs::paramPt(v2), forder, nsubcells); !igpt_f.isDone(); ++igpt_f)
+            {
+                const auto fparent = igpt_f.get();
+                const auto fw = igpt_f.getWeight();
+                
+                // field element parameters
+                const auto y = p_fel->eval(fparent);
+                const auto& basis_f = p_fel->basis(fparent.s, fparent.t);
+                const auto& ds_f = p_fel->localBasisDers(fparent.s, fparent.t, nurbs::DerivType::DS);
+                const auto& dt_f = p_fel->localBasisDers(fparent.s, fparent.t, nurbs::DerivType::DT);
+                const double jdet_f = p_fel->jacDet(fparent);
+                
+                // kernel
+                const double r = dist(x, y);
+                const auto ekernel = std::exp(std::complex<double>(0.0, k * r)) / (4.0 * nurbs::PI * r);
+                
+                // now loop over test and trial functions
+                for(size_t itest = 0; itest < sconn.size(); ++itest)
+                {
+                    const auto igbasis_s = sconn[itest];
+                    const auto ilocal_s = g2locals.at(igbasis_s);
+                    if(ilocal_s == -1)
+                        continue;
+                    
+                    // divergence (source)
+                    const double div_s = (ds_s[itest][0] + dt_s[itest][1]);
+                    
+                    for(size_t itrial = 0; itrial < fconn.size(); ++itrial)
+                    {
+                        const auto igbasis_f = fconn[itrial];
+                        const auto ilocal_f = g2localf.at(igbasis_f);
+                        if(ilocal_f == -1)
+                            continue;
+                        
+                        // divergence (field)
+                        const double div_f = (ds_f[itrial][0] + dt_f[itrial][1]);
+                        
+                        for(unsigned i = 0; i < 3; ++i)
+                            mat[ilocal_s][ilocal_f] += ekernel * basis_s[itest][i] * basis_f[itrial][i] * jdet_s * jdet_f * sw * fw;
+                        mat[ilocal_s][ilocal_f] -= 1.0 / (k * k) * div_s * div_f * ekernel * sw * fw;
+                        
+                    }
+                }
+            }
+        }
+    }
+    
+    void HAssemblyEmag::evalCoincidentSingularity(const unsigned iel,
+                                                  const std::map<unsigned, int>& g2locals,
+                                                  const std::map<unsigned, int>& g2localf,
+                                                  MatrixType& mat) const
+    {
+        //const auto& sorder = defaultQuadratureOrder();
+//        const nurbs::UIntVec forder{2,2};
+        const auto& forder = defaultQuadratureOrder();
+        const auto& sorder = defaultQuadratureOrder();
+        const auto& nsubcells = defaultSubcellN();
+        
+        const double k = wavenumber();
+        
+        const auto p_el = forest().bezierElement(iel);
+        const auto& conn = p_el->globalBasisFuncI();
+        
+        // and finally loop over all regular integrals
+        for(nurbs::IElemIntegrate igpt_s(sorder); !igpt_s.isDone(); ++igpt_s)
+        {
+            const auto sparent = igpt_s.get();
+            const auto sw = igpt_s.getWeight();
+            
+            // source element parameters
+            const auto x = p_el->eval(sparent);
+            const auto& basis_s = p_el->basis(sparent.s, sparent.t);
+            const auto& ds_s = p_el->localBasisDers(sparent.s, sparent.t, nurbs::DerivType::DS);
+            const auto& dt_s = p_el->localBasisDers(sparent.s, sparent.t, nurbs::DerivType::DT);
+            const double jdet_s = p_el->jacDet(sparent);
+            
+            // integrate over field elements
+            for(nurbs::IPolarIntegrate igpt_f(sparent, forder, nsubcells); !igpt_f.isDone(); ++igpt_f)
+            {
+                const auto fparent = igpt_f.get();
+                const auto fw = igpt_f.getWeight();
+                
+                // field element parameters
+                const auto y = p_el->eval(fparent);
+                const auto& basis_f = p_el->basis(fparent.s, fparent.t);
+                const auto& ds_f = p_el->localBasisDers(fparent.s, fparent.t, nurbs::DerivType::DS);
+                const auto& dt_f = p_el->localBasisDers(fparent.s, fparent.t, nurbs::DerivType::DT);
+                const double jdet_f = p_el->jacDet(fparent);
+                
+                // kernel
+                const double r = dist(x, y);
+                const auto ekernel = std::exp(std::complex<double>(0.0, k * r)) / (4.0 * nurbs::PI * r);
+                
+                // now loop over test and trial functions
+                for(size_t itest = 0; itest < conn.size(); ++itest)
+                {
+                    const auto igbasis_s = conn[itest];
+                    const auto ilocal_s = g2locals.at(igbasis_s);
+                    if(ilocal_s == -1)
+                        continue;
+                    
+                    // divergence (source)
+                    const double div_s = (ds_s[itest][0] + dt_s[itest][1]);
+                    
+                    for(size_t itrial = 0; itrial < conn.size(); ++itrial)
+                    {
+                        const auto igbasis_f = conn[itrial];
+                        const auto ilocal_f = g2localf.at(igbasis_f);
+                        if(ilocal_f == -1)
+                            continue;
+                        
+                        // divergence (field)
+                        const double div_f = (ds_f[itrial][0] + dt_f[itrial][1]);
+                        
+                        for(unsigned i = 0; i < 3; ++i)
+                            mat[ilocal_s][ilocal_f] += ekernel * basis_s[itest][i] * basis_f[itrial][i] * jdet_s * jdet_f * sw * fw;
+                        mat[ilocal_s][ilocal_f] -= 1.0 / (k * k) * div_s * div_f * ekernel * sw * fw;
+                        
+                    }
+                }
+            }
+        }
+    }
+
 }

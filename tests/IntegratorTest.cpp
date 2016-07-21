@@ -319,7 +319,7 @@ int main(const int argc, const char* argv[])
             
             // Output solution
             nurbs::OutputVTK output("sphere_test");
-            output.outputComplexAnalysisField(forest, "acoustic potential", solnvec);
+            output.outputComplexNodalField(forest, "acoustic potential", solnvec);
         }
         else
             std::cout << "  not converged in " << timer << " and "
