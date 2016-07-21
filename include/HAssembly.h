@@ -52,36 +52,46 @@ namespace fastibem {
         /// Are we caching terms?
         bool usingCache() const { return mUseCache; }
         
+        /// Accessor for quadrature orders
+        const std::vector<unsigned>& defaultQuadratureOrder() const { return mQuadratureOrder; }
+        
         const double precision() const { return mPrecision; }
         
         const unsigned minBlockSize() const { return mMinBlockSize; }
         
         const double admissibilityCondition() const { return mAdmissibleCondition; }
-        
+
         
     protected:
         
         /// Construct with multiforest
         template<typename F>
         HAssembly(const F& f,
+                  const std::vector<unsigned>& qorder = {2,2},
                   bool cache = false,
-                  const double eps = 1.0e-4,
+                  const double eps = 1.0e-6,
                   const unsigned nmin = 50,
                   const double admissible = 2.0)
         :
+        mQuadratureOrder(qorder),
         mUseCache(cache),
         mPrecision(eps),
         mMinBlockSize(nmin),
         mAdmissibleCondition(admissible),
         mTruncAccuracy(eps, 0.0)
-        { initClusterData(f); }
+        { init(f); }
 
+        /// GEt the set of elements connected to the given global basis index
+        const std::vector<unsigned>& connectedEls(const unsigned ibasis) const
+        {
+            return mConnectedEls[ibasis];
+        }
         
     private:
         
         /// Set up the block cluster tree using the mesh
         template<typename F>
-        void initClusterData(const F& forest)
+        void init(const F& forest)
         {
             //
             // Bounding box setup
@@ -148,8 +158,22 @@ namespace fastibem {
                 c_vis.print( clusterTree()->root(), "multiforest_ct" );
                 bc_vis.print( blockClusterTree()->root(), "multiforest_bct" );
             }
+            
+            // now set up the set of elements connected to each basis function
+            mConnectedEls.clear();
+            mConnectedEls.resize(forest.globalDofN());
+            
+            for(unsigned ielem = 0; ielem < forest.elemN(); ++ielem)
+            {
+                const auto el = forest.bezierElement(ielem);
+                const auto gbasisvec = el->globalBasisFuncI();
+                for(const auto& gindex : gbasisvec)
+                    mConnectedEls[gindex].push_back(ielem);
+            }
         }
         
+        /// Order of quadrature in each parametric dirction
+        std::vector<unsigned> mQuadratureOrder;
         
         /// Cache flag
         bool mUseCache;
@@ -175,6 +199,9 @@ namespace fastibem {
         /// Hlib accuracy instance
         HLIB::TTruncAcc mTruncAccuracy;
         
+        /// The set of element indices connected to each basis function
+        std::vector<std::vector<unsigned>> mConnectedEls;
+        
     };
     
     /// Create a specialisation for electromagnetic analysis
@@ -186,14 +213,16 @@ namespace fastibem {
         
         typedef std::vector<std::vector<ReturnType>> MatrixType;
         
+        /// Construcotr
         HAssemblyEmag(const nurbs::MultiForest& f,
                       const nurbs::Point3D& wvec,
                       const nurbs::Point3D& pvec,
                       const double mu,
                       const double omega,
+                      const std::vector<unsigned>& qorder = {2,2},
                       bool cache = false)
         :
-        HAssembly(f, cache),
+        HAssembly(f, qorder, cache),
         mWaveVec(wvec),
         mPolarVec(pvec),
         mMu(mu),
@@ -215,8 +244,12 @@ namespace fastibem {
         /// Evaluate the submatrix for the given row and column indices
         MatrixType evalSubmatrix(const std::vector<uint>& rows,
                                  const std::vector<uint>& cols) const;
+                    
         /// The wavevector accessor
         const nurbs::Point3D& wavevector() const { return mWaveVec; }
+        
+        /// Get the wavenumber
+        const double wavenumber() const { return wavevector().length(); }
         
         /// The polarisation vector accessor
         const nurbs::Point3D& polarvector() const { return mPolarVec; }
@@ -307,6 +340,15 @@ namespace fastibem {
         
     };
     
+    /// Helper function to compute required component for quadrature
+    /// routines
+    void computeQuadratureComponents(const nurbs::VAnalysisElement* el,
+                                     const nurbs::GPt2D& gp,
+                                     nurbs::Point3D& x,
+                                     std::vector<std::vector<double>>& basis,
+                                     std::vector<std::vector<double>>& derivs,
+                                     std::vector<std::vector<double>>& derivt,
+                                     double& jdet);
 }
 
 #endif

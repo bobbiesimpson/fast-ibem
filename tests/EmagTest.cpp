@@ -55,7 +55,6 @@ int main(int argc, char* argv[])
         }
     }
     multiforest.hrefine(refine);
-    //multiforest.print(std::cout);
     
     // Some hardcoded input parameters
     const double k = std::atof(argv[2]);
@@ -75,9 +74,19 @@ int main(int argc, char* argv[])
                                       omega);
     
     auto A = hassembly.assembleHmatrix();
-    auto f = A->row_vector();
     
-    hassembly.fastibem::HAssembly::assembleForceVector(f.get());
+    
+    std::cout << "kvalues ....\n\n";
+    for(size_t i = 0; i < 10; ++i)
+    {
+        for(size_t j = 0; j < 10; ++j)
+            std::cout << A->centry(i, j) << "\t";
+        std::cout << "\n";
+    }
+    
+    // Force vector
+    auto f = A->row_vector();
+    hassembly.assembleForceVector(f.get());
     
     // Now solve!
     HLIB::TTimer                    timer( HLIB::WALL_TIME );
@@ -114,6 +123,8 @@ int main(int argc, char* argv[])
         // create output vector and set to VTK file
         const auto n = multiforest.globalDofN();
         std::vector<std::complex<double>> solnvec(n);
+        
+        std::cout << "solution\n\n";
         for(size_t i = 0; i < n; ++i)
         {
             const auto entry = x->centry(i);
