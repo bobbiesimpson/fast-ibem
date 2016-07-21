@@ -56,6 +56,10 @@ int main(int argc, char* argv[])
     }
     multiforest.hrefine(refine);
     
+    std::cout << "Performing emag scattering analysis on multiforest with "
+              << multiforest.elemN() << " elements, "
+              << multiforest.globalDofN() << " dof.....\n";
+    
     // Some hardcoded input parameters
     const double k = std::atof(argv[2]);
     
@@ -74,15 +78,6 @@ int main(int argc, char* argv[])
                                       omega);
     
     auto A = hassembly.assembleHmatrix();
-    
-    
-    std::cout << "kvalues ....\n\n";
-    for(size_t i = 0; i < 10; ++i)
-    {
-        for(size_t j = 0; j < 10; ++j)
-            std::cout << A->centry(i, j) << "\t";
-        std::cout << "\n";
-    }
     
     // Force vector
     auto f = A->row_vector();

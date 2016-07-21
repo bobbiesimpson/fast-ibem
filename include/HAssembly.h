@@ -69,7 +69,7 @@ namespace fastibem {
         HAssembly(const F& f,
                   const std::vector<unsigned>& qorder = {2,2},
                   bool cache = false,
-                  const double eps = 1.0e-6,
+                  const double eps = 1.0e-4,
                   const unsigned nmin = 50,
                   const double admissible = 2.0)
         :
@@ -219,8 +219,8 @@ namespace fastibem {
                       const nurbs::Point3D& pvec,
                       const double mu,
                       const double omega,
-                      const std::vector<unsigned>& qorder = {4,4},
-                      const std::vector<unsigned>& nsubcells = {4,2},
+                      const std::vector<unsigned>& qorder = {3,3},
+                      const std::vector<unsigned>& nsubcells = {1,1},
                       bool cache = false)
         :
         HAssembly(f, qorder, cache),

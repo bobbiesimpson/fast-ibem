@@ -311,8 +311,8 @@ namespace fastibem {
                                             const std::map<unsigned, int>& g2localf,
                                             MatrixType& mat) const
     {
-        const auto& forder = defaultQuadratureOrder();
-//        const nurbs::UIntVec forder{2,2};
+      //  const auto& forder = defaultQuadratureOrder();
+        const nurbs::UIntVec forder{2,2};
         const auto& sorder = defaultQuadratureOrder();
         const auto& nsubcells = defaultSubcellN();
         
@@ -394,8 +394,8 @@ namespace fastibem {
                                               const std::map<unsigned, int>& g2localf,
                                               MatrixType& mat) const
     {
-        const auto& forder = defaultQuadratureOrder();
-//        const nurbs::UIntVec forder{2,2};
+//        const auto& forder = defaultQuadratureOrder();
+        const nurbs::UIntVec forder{2,2};
         const auto& sorder = defaultQuadratureOrder();
         const auto& nsubcells = defaultSubcellN();
         
@@ -474,8 +474,8 @@ namespace fastibem {
                                                   MatrixType& mat) const
     {
         //const auto& sorder = defaultQuadratureOrder();
-//        const nurbs::UIntVec forder{2,2};
-        const auto& forder = defaultQuadratureOrder();
+        const nurbs::UIntVec forder{2,2};
+//        const auto& forder = defaultQuadratureOrder();
         const auto& sorder = defaultQuadratureOrder();
         const auto& nsubcells = defaultSubcellN();
         
