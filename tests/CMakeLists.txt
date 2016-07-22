@@ -6,3 +6,4 @@ target_link_libraries(emagtest fastibem hpro ${THIS_LINK_LIBS})
 
 add_test(integrationTest integratorTest ${fast-ibem_SOURCE_DIR}/input/sphere.dat)
 add_test(emagtest emagtest)
+

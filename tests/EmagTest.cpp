@@ -35,8 +35,20 @@ int main(int argc, char* argv[])
     if(!g.loadHBSFile(ifs))
         error("Failed to load geometry from hbs data");
     
+    g.normalise();
+    
     // Construct the necessary forests
     HDivForest multiforest(g);
+    
+    std::vector<std::complex<double>> svec(multiforest.globalDofN());
+    for(size_t i = 0; i < svec.size(); ++i)
+        svec[i] = std::complex<double>(1.0, 1.0);
+    
+    // Output solution
+    nurbs::OutputVTK output("temptest");
+    output.outputComplexVectorField(multiforest, "surface_current", svec);
+    
+    return EXIT_SUCCESS;
     
     // Apply hrefinement
     uint refine = 0;
@@ -116,14 +128,13 @@ int main(int argc, char* argv[])
         hassembly.clusterTree()->perm_i2e()->permute( x.get() );
         
         // create output vector and set to VTK file
-        const auto n = multiforest.globalDofN();
-        std::vector<std::complex<double>> solnvec(n);
+        std::vector<std::complex<double>> solnvec;
         
         std::cout << "solution\n\n";
-        for(size_t i = 0; i < n; ++i)
+        for(size_t i = 0; i < x->size(); ++i)
         {
             const auto entry = x->centry(i);
-            solnvec[i] = std::complex<double>(entry.re(), entry.im());
+            solnvec.push_back(std::complex<double>(entry.re(), entry.im()));
             std::cout << entry.re() << "," << entry.im() << "\n";
         }
         

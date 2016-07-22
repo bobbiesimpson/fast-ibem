@@ -242,6 +242,7 @@ namespace fastibem {
                 
                 // source element parameters
                 const auto x = p_sel->eval(sparent);
+                
                 const auto& basis_s = p_sel->basis(sparent.s, sparent.t);
                 const auto& ds_s = p_sel->localBasisDers(sparent.s, sparent.t, nurbs::DerivType::DS);
                 const auto& dt_s = p_sel->localBasisDers(sparent.s, sparent.t, nurbs::DerivType::DT);
