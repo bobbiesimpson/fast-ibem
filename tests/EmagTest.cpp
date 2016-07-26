@@ -35,53 +35,10 @@ int main(int argc, char* argv[])
     if(!g.loadHBSFile(ifs))
         error("Failed to load geometry from hbs data");
     
-    g.normalise();
+    //g.normalise();
     
-
     // Construct the necessary forests
     HDivForest multiforest(g);
-
-    
-    //Forest forest(g);
-    
-//    double abezier = 0.0;
-//    double astandard = 0.0;
-//    double amforest = 0.0;
-//    for(uint ielem = 0; ielem < multiforest.elemN(); ++ielem)
-//    {
-//        const auto el = multiforest.element(ielem);
-//        const auto bvel = multiforest.bezierElement(ielem);
-//        
-//        for(nurbs::IElemIntegrate igpt(bvel->integrationOrder()); !igpt.isDone(); ++igpt)
-//        {
-//            const auto gpt = igpt.get();
-////            abezier += bvel->jacDet(igpt.get()) * igpt.getWeight();
-//            std::cout << bvel->basis(gpt.s, gpt.t) << "\n\n";
-//            std::cout << el->basis(gpt.s, gpt.t) << "\n\n";
-//            astandard += el->jacDet(igpt.get()) * igpt.getWeight();
-//            amforest += bvel->jacDet(igpt.get()) * igpt.getWeight();
-//            std::cout << bvel->localBasisDers(gpt.s, gpt.t, nurbs::DerivType::DS) << "\n\n";
-//            std::cout << el->localBasisDers(gpt.s, gpt.t, nurbs::DerivType::DS) << "\n\n";
-//            
-//        }
-//        const nurbs::GPt2D gpt(1.0, 1.0);
-//        if(std::abs(bvel->jacDet(gpt.s, gpt.t) - el->jacDet(gpt.s, gpt.t)) > 1.0e-4 )
-//        {
-//            std::cout << bvel->localBasisDers(gpt.s, gpt.t, nurbs::DerivType::DS) << "\n\n";
-//            std::cout << el->localBasisDers(gpt.s, gpt.t, nurbs::DerivType::DS) << "\n\n";
-//            std::cout << bvel->localBasis(gpt.s, gpt.t) << "\n\n";
-//            std::cout << el->localBasis(gpt.s, gpt.t) << "\n\n";
-//            
-//            std::cout << bvel->eval(gpt) << "\n\n";
-//            std::cout << el->eval(gpt) << "\n\n";
-//            
-//            std::cout << "error\n";
-//        }
-//        
-//    }
-//    
-//    std::cout << "abezier = " << abezier << "\t" << astandard << "\t" << amforest << "\n";
-    
     
     // Apply hrefinement
     uint refine = 0;
@@ -100,9 +57,8 @@ int main(int argc, char* argv[])
         }
     }
 
+//    multiforest.prefine(1);
     multiforest.hrefine(refine);
-            multiforest.prefine(1);
-
     
     std::cout << "Performing emag scattering analysis on multiforest with "
               << multiforest.elemN() << " elements, "
