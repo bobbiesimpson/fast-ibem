@@ -224,7 +224,8 @@ namespace fastibem {
                                       matrix);
         
         // Default quadrature order
-        const nurbs::UIntVec forder{2,2};
+//        const nurbs::UIntVec forder{2,2};
+        const nurbs::UIntVec forder = defaultQuadratureOrder();
         const auto& sorder = defaultQuadratureOrder();
         
         // and finally loop over all regular integrals
@@ -312,7 +313,7 @@ namespace fastibem {
                                             const std::map<unsigned, int>& g2localf,
                                             MatrixType& mat) const
     {
-      //  const auto& forder = defaultQuadratureOrder();
+//        const auto& forder = defaultQuadratureOrder();
         const nurbs::UIntVec forder{2,2};
         const auto& sorder = defaultQuadratureOrder();
         const auto& nsubcells = defaultSubcellN();
@@ -474,7 +475,7 @@ namespace fastibem {
                                                   const std::map<unsigned, int>& g2localf,
                                                   MatrixType& mat) const
     {
-        //const auto& sorder = defaultQuadratureOrder();
+//        const auto& sorder = defaultQuadratureOrder();
         const nurbs::UIntVec forder{2,2};
 //        const auto& forder = defaultQuadratureOrder();
         const auto& sorder = defaultQuadratureOrder();
