@@ -275,7 +275,7 @@ namespace fastibem {
                         
                         // kernel
                         const double r = dist(x, y);
-                        const auto ekernel = std::exp(std::complex<double>(0.0, k * r)) / (4.0 * nurbs::PI * r);
+                        const auto ekernel = std::exp(std::complex<double>(0.0, -k * r)) / (4.0 * nurbs::PI * r);
                         
                         // now loop over test and trial functions
                         for(size_t itest = 0; itest < sconn.size(); ++itest)
@@ -370,7 +370,7 @@ namespace fastibem {
                 
                 // kernel
                 const double r = dist(x, y);
-                const auto ekernel = std::exp(std::complex<double>(0.0, k * r)) / (4.0 * nurbs::PI * r);
+                const auto ekernel = std::exp(std::complex<double>(0.0, -k * r)) / (4.0 * nurbs::PI * r);
                 
                 // now loop over test and trial functions
                 for(size_t itest = 0; itest < sconn.size(); ++itest)
@@ -459,7 +459,7 @@ namespace fastibem {
                 
                 // kernel
                 const double r = dist(x, y);
-                const auto ekernel = std::exp(std::complex<double>(0.0, k * r)) / (4.0 * nurbs::PI * r);
+                const auto ekernel = std::exp(std::complex<double>(0.0, -k * r)) / (4.0 * nurbs::PI * r);
                 
                 // now loop over test and trial functions
                 for(size_t itest = 0; itest < sconn.size(); ++itest)
@@ -544,7 +544,7 @@ namespace fastibem {
                 
                 // kernel
                 const double r = dist(x, y);
-                const auto ekernel = std::exp(std::complex<double>(0.0, k * r)) / (4.0 * nurbs::PI * r);
+                const auto ekernel = std::exp(std::complex<double>(0.0, -k * r)) / (4.0 * nurbs::PI * r);
                 
                 // now loop over test and trial functions
                 for(size_t itest = 0; itest < conn.size(); ++itest)
