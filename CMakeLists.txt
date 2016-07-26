@@ -62,8 +62,7 @@ set(LIBHEADERS  ${LIB_INCLUDE_DIR}/CollocationAssembly.h
 
 # Add the .cpp source files to the library
 set(LIB_SOURCE_DIR ${fast-ibem_SOURCE_DIR}/src)
-set(LIBSOURCES 	${LIB_SOURCE_DIR}/CollocationAssembly.cpp
-                ${LIB_SOURCE_DIR}/HAssembly.cpp
+set(LIBSOURCES 	${LIB_SOURCE_DIR}/HAssembly.cpp
                 ${LIBHEADERS})
 add_library(fastibem ${LIBSOURCES})
 target_link_libraries(fastibem ${THIS_LINK_LIBS})
