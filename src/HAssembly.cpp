@@ -244,13 +244,13 @@ namespace fastibem {
                 // source element parameters
                 const auto x = p_sel->eval(sparent);
                 
-                const auto& t1 = p_sel->tangent(sparent.s, sparent.t, nurbs::ParamDir::S);
-                const auto& t2 = p_sel->tangent(sparent.s, sparent.t, nurbs::ParamDir::T);
+//                const auto& t1 = p_sel->tangent(sparent.s, sparent.t, nurbs::ParamDir::S);
+//                const auto& t2 = p_sel->tangent(sparent.s, sparent.t, nurbs::ParamDir::T);
                 
-                const auto& basis_s = p_sel->basis(sparent.s, sparent.t, t1, t2);
+                const auto& basis_s = p_sel->basis(sparent.s, sparent.t);
                 const auto& ds_s = p_sel->localBasisDers(sparent.s, sparent.t, nurbs::DerivType::DS);
                 const auto& dt_s = p_sel->localBasisDers(sparent.s, sparent.t, nurbs::DerivType::DT);
-                const double jdet_s = p_sel->jacDet(sparent.s, sparent.t, t1, t2);
+                const double jdet_s = p_sel->jacDet(sparent.s, sparent.t);
 
                 // integrate over field elements
                 for(nurbs::IElemIntegrate igpt_f(forder); !igpt_f.isDone(); ++igpt_f)
@@ -264,14 +264,14 @@ namespace fastibem {
                         const auto p_fel = forest().bezierElement(igfieldel);
                         const auto& fconn = p_fel->globalBasisFuncI();
                         
-                        const auto& t1 = p_fel->tangent(fparent.s, fparent.t, nurbs::ParamDir::S);
-                        const auto& t2 = p_fel->tangent(fparent.s, fparent.t, nurbs::ParamDir::T);
+//                        const auto& t1 = p_fel->tangent(fparent.s, fparent.t, nurbs::ParamDir::S);
+//                        const auto& t2 = p_fel->tangent(fparent.s, fparent.t, nurbs::ParamDir::T);
                         
                         const auto y = p_fel->eval(fparent);
-                        const auto& basis_f = p_fel->basis(fparent.s, fparent.t, t1, t2);
+                        const auto& basis_f = p_fel->basis(fparent.s, fparent.t);
                         const auto& ds_f = p_fel->localBasisDers(fparent.s, fparent.t, nurbs::DerivType::DS);
                         const auto& dt_f = p_fel->localBasisDers(fparent.s, fparent.t, nurbs::DerivType::DT);
-                        const double jdet_f = p_fel->jacDet(fparent, t1, t2);
+                        const double jdet_f = p_fel->jacDet(fparent);
                         
                         // kernel
                         const double r = dist(x, y);
@@ -515,15 +515,15 @@ namespace fastibem {
             const auto sw = igpt_s.getWeight();
             
             // cached tangent entries
-            const auto& t1 = p_el->tangent(sparent.s, sparent.t, nurbs::ParamDir::S);
-            const auto& t2 = p_el->tangent(sparent.s, sparent.t, nurbs::ParamDir::T);
+//            const auto& t1 = p_el->tangent(sparent.s, sparent.t, nurbs::ParamDir::S);
+//            const auto& t2 = p_el->tangent(sparent.s, sparent.t, nurbs::ParamDir::T);
             
             // source element parameters
             const auto x = p_el->eval(sparent);
-            const auto& basis_s = p_el->basis(sparent.s, sparent.t, t1, t2);
+            const auto& basis_s = p_el->basis(sparent.s, sparent.t);
             const auto& ds_s = p_el->localBasisDers(sparent.s, sparent.t, nurbs::DerivType::DS);
             const auto& dt_s = p_el->localBasisDers(sparent.s, sparent.t, nurbs::DerivType::DT);
-            const double jdet_s = p_el->jacDet(sparent, t1, t2);
+            const double jdet_s = p_el->jacDet(sparent);
             
             // integrate over field elements
             for(nurbs::IPolarIntegrate igpt_f(sparent, forder, nsubcells); !igpt_f.isDone(); ++igpt_f)
@@ -532,15 +532,15 @@ namespace fastibem {
                 const auto fw = igpt_f.getWeight();
                 
                 // cached tangent entries
-                const auto& t1 = p_el->tangent(fparent.s, fparent.t, nurbs::ParamDir::S);
-                const auto& t2 = p_el->tangent(fparent.s, fparent.t, nurbs::ParamDir::T);
+//                const auto& t1 = p_el->tangent(fparent.s, fparent.t, nurbs::ParamDir::S);
+//                const auto& t2 = p_el->tangent(fparent.s, fparent.t, nurbs::ParamDir::T);
                 
                 // field element parameters
                 const auto y = p_el->eval(fparent);
-                const auto& basis_f = p_el->basis(fparent.s, fparent.t, t1, t2);
+                const auto& basis_f = p_el->basis(fparent.s, fparent.t);
                 const auto& ds_f = p_el->localBasisDers(fparent.s, fparent.t, nurbs::DerivType::DS);
                 const auto& dt_f = p_el->localBasisDers(fparent.s, fparent.t, nurbs::DerivType::DT);
-                const double jdet_f = p_el->jacDet(fparent, t1, t2);
+                const double jdet_f = p_el->jacDet(fparent);
                 
                 // kernel
                 const double r = dist(x, y);
