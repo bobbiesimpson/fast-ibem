@@ -36,6 +36,7 @@ int main(int argc, char* argv[])
         error("Failed to load geometry from hbs data");
     
     //g.normalise();
+    //g.rescale(0.5);
     
     // Construct the necessary forests
     HDivForest multiforest(g);

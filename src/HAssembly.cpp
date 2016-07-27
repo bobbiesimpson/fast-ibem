@@ -179,7 +179,7 @@ namespace fastibem {
                 const auto p_fieldel = forest().bezierElement(igfieldel);
                 
                 // edge singularity
-                if(nurbs::edgeConnected(*p_srcel, *p_fieldel, e1, e2))
+                /*if(nurbs::edgeConnected(*p_srcel, *p_fieldel, e1, e2))
                     edge_integrals.push_back(std::make_tuple(igsrcel, igfieldel, e1, e2));
 
                 // vertex singularity
@@ -187,7 +187,7 @@ namespace fastibem {
                     vertex_integrals.push_back(std::make_tuple(igsrcel, igfieldel, v2));
                 
                 // coincident singularity
-                else if(igsrcel == igfieldel)
+                else */if(igsrcel == igfieldel)
                     coincident_integrals.push_back(igsrcel);
                 
                 // regular integral
