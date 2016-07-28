@@ -219,7 +219,7 @@ namespace fastibem {
                       const nurbs::Point3D& pvec,
                       const double mu,
                       const double omega,
-                      const std::vector<unsigned>& qorder = {3,3},
+                      const std::vector<unsigned>& qorder = {4,4},
                       const std::vector<unsigned>& nsubcells = {1,1},
                       bool cache = false)
         :
