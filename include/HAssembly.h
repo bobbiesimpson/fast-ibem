@@ -55,10 +55,13 @@ namespace fastibem {
         /// Accessor for quadrature orders
         const std::vector<unsigned>& defaultQuadratureOrder() const { return mQuadratureOrder; }
         
+        /// Get the precision specified
         const double precision() const { return mPrecision; }
         
+        /// Get the minimum H-matrix block size
         const unsigned minBlockSize() const { return mMinBlockSize; }
         
+        /// Get the admissilibity condition
         const double admissibilityCondition() const { return mAdmissibleCondition; }
 
         

@@ -255,11 +255,11 @@ namespace fastibem {
                     const auto p_fel = forest().bezierElement(igfieldel);
                     const auto& fconn = p_fel->globalBasisFuncI();
                     
-                    nurbs::UIntVec forder;
-                    if(nurbs::dist(x, p_fel->eval(0.0, 0.0)) > p_fel->size() * 2.0)
-                        forder = nurbs::UIntVec{2,2};
-                    else
-                        forder = p_fel->equalIntegrationOrder();
+                    nurbs::UIntVec forder{2,2};
+//                    if(nurbs::dist(x, p_fel->eval(0.0, 0.0)) > p_fel->size() * 2.0)
+//                        forder = nurbs::UIntVec{2,2};
+//                    else
+//                        forder = p_fel->equalIntegrationOrder();
                     
                     // integrate over field elements
                     for(nurbs::IElemIntegrate igpt_f(forder); !igpt_f.isDone(); ++igpt_f)
@@ -491,7 +491,8 @@ namespace fastibem {
         const auto p_el = forest().bezierElement(iel);
         const auto& conn = p_el->globalBasisFuncI();
         
-        const auto& forder = p_el->equalIntegrationOrder();
+//        const auto& forder = p_el->equalIntegrationOrder();
+        nurbs::UIntVec forder{2,2};
         const auto& sorder = p_el->equalIntegrationOrder();
         const auto& nsubcells = defaultSubcellN();
         
