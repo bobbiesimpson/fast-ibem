@@ -73,7 +73,7 @@ namespace fastibem {
                     
                     for(unsigned i = 0; i < 2; ++i)
                         for(unsigned j = 0; j < 3; ++j)
-                            ftemp[igbasis] += -1.0 / std::complex<double>(0.0, omega() * mu()) * basis[ibasis][i] * jacob[i][j]
+                            ftemp[igbasis] += 1.0 / std::complex<double>(0.0, omega() * mu()) * basis[ibasis][i] * jacob[i][j]
                             * pw[j] * w;
                 }
             }
@@ -231,7 +231,9 @@ namespace fastibem {
         for(const auto& isel : isrc_els)
         {
             const auto p_sel = forest().bezierElement(isel);
-            const auto& sorder = p_sel->equalIntegrationOrder();
+			//const nurbs::UIntVec sorder{5,5};
+			
+			const auto& sorder = p_sel->equalIntegrationOrder();
             
             // compute set of basis func indices required
             nurbs::UIntVec sset;
@@ -278,8 +280,8 @@ namespace fastibem {
             const auto p_fel = forest().bezierElement(ifel);
             const auto& fconn = p_fel->globalBasisFuncI();
             
-            const nurbs::UIntVec forder{2,2};
-//            const auto& forder = p_fel->equalIntegrationOrder();
+            // const nurbs::UIntVec forder{3,3};
+			const auto& forder = p_fel->equalIntegrationOrder();
             
             // Determine set of require basis func indices
             nurbs::UIntVec fset;
@@ -308,8 +310,9 @@ namespace fastibem {
                         continue;
                     const auto p_sel = forest().bezierElement(isel);
                     const auto& sconn = p_sel->globalBasisFuncI();
+					//const nurbs::UIntVec sorder{5,5};
                     const auto& sorder = p_sel->equalIntegrationOrder();
-                    
+
                     // loop over source element quadrature points
                     for(nurbs::IElemIntegrate igpt_s(sorder); !igpt_s.isDone(); ++igpt_s)
                     {
@@ -622,8 +625,9 @@ namespace fastibem {
         const auto& conn = p_el->globalBasisFuncI();
         
         const auto& forder = p_el->equalIntegrationOrder();
-//        nurbs::UIntVec forder{2,2};
-        const auto& sorder = p_el->equalIntegrationOrder();
+		// const nurbs::UIntVec forder{5,5};
+		// const nurbs::UIntVec sorder{5,5};
+		const auto& sorder = p_el->equalIntegrationOrder();
         const auto& nsubcells = defaultSubcellN();
         
         // and finally loop over all regular integrals

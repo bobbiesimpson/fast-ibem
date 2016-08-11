@@ -8,6 +8,7 @@
 #include "MaterialParam.h"
 #include "OutputVTK.h"
 #include "hlib.hh"
+#include "NURBSCache.h"
 
 using namespace nurbs;
 
@@ -87,7 +88,10 @@ int main(int argc, char* argv[])
     // Force vector
     auto f = A->row_vector();
     hassembly.assembleForceVector(f.get());
-    
+
+	// clear the cache
+	nurbshelper::NURBSCache::Instance().clear();
+	
     // Now solve!
     HLIB::TTimer                    timer( HLIB::WALL_TIME );
     HLIB::TConsoleProgressBar       progress;
