@@ -18,6 +18,8 @@ int main(int argc, char* argv[])
     HLIB::INIT();
     HLIB::CFG::set_verbosity( 3 );
     
+    //HLIB::CFG::set_nthreads(1);
+    
     if(argc < 3)
     {
         std::cerr << "Please run as ./emagtest <input_file> <wavenumber> <optional: hrefinement>\n";
@@ -37,7 +39,7 @@ int main(int argc, char* argv[])
         error("Failed to load geometry from hbs data");
     
     //g.normalise();
-    //g.rescale(0.5);
+//    g.rescale(1/4.0);
     
     // Construct the necessary forests
     HDivForest multiforest(g);
@@ -69,12 +71,19 @@ int main(int argc, char* argv[])
     // Some hardcoded input parameters
     const double k = std::atof(argv[2]);
     
-    // Polarisation vector and wavevector
-    const Point3D pvec(1.0, 0.0, 0.0);
-    const Point3D kvec(0.0, 0.0, k);
+//    // Polarisation vector and wavevector for sphere problem
+//    const Point3D pvec(0.0, 0.0, 1.0);
+//    const Point3D kvec(k, 0.0, 0.0);
+//    
+//    const double omega = k;
+//    const double mu = 1.0;
     
-    const double omega = k;
-    const double mu = 1.0;
+    const double mu = 1.257e-6;
+    const double epsilon = 8.854e-12;
+    const double omega = k / std::sqrt(mu * epsilon);
+    
+    const Point3D kvec(k, 0.0, 0.0);
+    const Point3D pvec(0.0, 1.0, 0.0);
     
     // Create class for assembling Hmatrix and force vector
     fastibem::HAssemblyEmag hassembly(multiforest,
@@ -83,8 +92,18 @@ int main(int argc, char* argv[])
                                       mu,
                                       omega);
     
+//    HLIB::TScalarVector ftest(multiforest.globalDofN(), 0, HLIB::complex_valued);
+//    hassembly.assembleForceVector(&ftest);
+    
     auto A = hassembly.assembleHmatrix();
     
+//    for(size_t i = 0; i < 10; ++i)
+//    {
+//        for(size_t j = 0; j < 10; ++j)
+//            std::cout << A->centry(i,j) << "\t";
+//        std::cout << "\n";
+//    }
+//    
     // Force vector
     auto f = A->row_vector();
     hassembly.assembleForceVector(f.get());
@@ -132,6 +151,7 @@ int main(int argc, char* argv[])
         {
             const auto entry = x->centry(i);
             solnvec.push_back(std::complex<double>(entry.re(), entry.im()));
+            //solnvec.push_back(std::complex<double>(1.0, 0.0));
             std::cout << entry.re() << "," << entry.im() << "\n";
         }
         

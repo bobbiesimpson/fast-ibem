@@ -46,8 +46,9 @@ namespace fastibem {
         for(unsigned ielem = 0; ielem < forest().elemN(); ++ielem)
         {
             const auto p_el = forest().bezierElement(ielem);
-            const auto econn = p_el->globalBasisFuncI();
-            const auto& qorder = p_el->equalIntegrationOrder();
+//            const auto econn = p_el->globalBasisFuncI();
+            const auto econn = p_el->signedGlobalBasisFuncI();
+            const auto& qorder = p_el->equalIntegrationOrder(2);
             
             for(nurbs::IElemIntegrate igpt(qorder); !igpt.isDone(); ++igpt)
             {
@@ -60,21 +61,32 @@ namespace fastibem {
                 // emag plane wave at x
                 const auto pw = pw_functor(x);
                 
+                // tangent vectors
+                const auto& t1 = p_el->tangent(gpt.s, gpt.t, nurbs::ParamDir::S);
+                const auto& t2 = p_el->tangent(gpt.s, gpt.t, nurbs::ParamDir::T);
+                
                 // basis funcs
-                const auto basis = p_el->localBasis(gpt.s, gpt.t);
+                const auto basis = p_el->basis(gpt.s, gpt.t, t1, t2);
+//                const auto basis = p_el->localBasis(gpt.s, gpt.t);
                 
                 // jacobian
-                const auto jacob = p_el->jacob(gpt.s, gpt.t);
+//                const auto jacob = p_el->jacob(gpt.s, gpt.t);
+                const auto jdet = p_el->jacDet(gpt);
                 
                 for(size_t ibasis = 0; ibasis < econn.size(); ++ibasis)
                 {
                     // global basis index
                     const auto igbasis = econn[ibasis];
+                    if(-1 == igbasis)
+                        continue; // degenerate dof
                     
-                    for(unsigned i = 0; i < 2; ++i)
-                        for(unsigned j = 0; j < 3; ++j)
-                            ftemp[igbasis] += 1.0 / std::complex<double>(0.0, omega() * mu()) * basis[ibasis][i] * jacob[i][j]
-                            * pw[j] * w;
+                    for(unsigned j = 0; j < 3; ++j)
+                        ftemp[igbasis] += 1.0 / std::complex<double>(0.0, omega() * mu()) * basis[ibasis][j] * pw[j] * w * jdet;
+                    
+//                    for(unsigned i = 0; i < 2; ++i)
+//                        for(unsigned j = 0; j < 3; ++j)
+//                            ftemp[igbasis] += 1.0 / std::complex<double>(0.0, omega() * mu()) * basis[ibasis][i] * jacob[i][j]
+//                            * pw[j] * w;
                 }
             }
         }
@@ -101,8 +113,8 @@ namespace fastibem {
         
         // maps from global basis indices to local row or column indices.
         // a local index of -1 denotes that the term is ignored.
-        std::map<unsigned, int> g2local_field;
-        std::map<unsigned, int> g2local_src;
+        std::map<int, int> g2local_field;
+        std::map<int, int> g2local_src;
         
         // first fill up the source element vector and map
         for(size_t ibasis = 0; ibasis < rows.size(); ++ibasis)
@@ -117,8 +129,11 @@ namespace fastibem {
                 const auto el = forest().bezierElement(e);
                 
                 // Set all basis function indices not in the required list equal to -1
-                for(const auto& i : el->globalBasisFuncI())
+                for(const auto& i : el->signedGlobalBasisFuncI())
                 {
+                    if(-1 == i) // degenerate point
+                        continue;
+                    
                     if(g2local_src.find(i) == g2local_src.end())
                         g2local_src[i] = -1;
                 }
@@ -138,8 +153,11 @@ namespace fastibem {
                 const auto el = forest().bezierElement(e);
                 
                 // Set all basis function indices not in the required list equal to -1
-                for(const auto& i : el->globalBasisFuncI())
+                for(const auto& i : el->signedGlobalBasisFuncI())
                 {
+                    if(-1 == i)
+                        continue;
+                    
                     if(g2local_field.find(i) == g2local_field.end())
                         g2local_field[i] = -1;
                 }
@@ -164,18 +182,18 @@ namespace fastibem {
         // The sets of regular source and field elements
         std::map<unsigned, std::vector<unsigned>> regular_elmap;
         
-        nurbs::Edge e1, e2;
-        nurbs::Vertex v1, v2;
+//        nurbs::Edge e1, e2;
+//        nurbs::Vertex v1, v2;
         
         for(size_t isrcel = 0; isrcel < isrc_els.size(); ++isrcel)
         {
             const auto igsrcel = isrc_els[isrcel];
-            const auto p_srcel = forest().bezierElement(igsrcel);
+//            const auto p_srcel = forest().bezierElement(igsrcel);
             
             for(size_t ifieldel = 0; ifieldel < ifield_els.size(); ++ifieldel)
             {
                 const auto igfieldel = ifield_els[ifieldel];
-                const auto p_fieldel = forest().bezierElement(igfieldel);
+//                const auto p_fieldel = forest().bezierElement(igfieldel);
                 
                 // edge singularity
                 /*if(nurbs::edgeConnected(*p_srcel, *p_fieldel, e1, e2))
@@ -226,7 +244,7 @@ namespace fastibem {
         std::map<std::pair<unsigned, unsigned>, double> sjdet_map;
         std::map<std::pair<unsigned, unsigned>, nurbs::DoubleVec> sdiv_map;
         std::map<std::pair<unsigned, unsigned>, nurbs::Point3D> spoint_map;
-        std::map<unsigned, nurbs::UIntVec> sconn_map;
+        std::map<unsigned, nurbs::IntVec> sconn_map;
         
         for(const auto& isel : isrc_els)
         {
@@ -236,11 +254,13 @@ namespace fastibem {
 			const auto& sorder = p_sel->equalIntegrationOrder();
             
             // compute set of basis func indices required
-            nurbs::UIntVec sset;
-            const auto& conn = p_sel->globalBasisFuncI();
+            nurbs::IntVec sset;
+            const auto& conn = p_sel->signedGlobalBasisFuncI();
             for(uint ibasis = 0; ibasis < p_sel->basisFuncN(); ++ibasis)
+            {
                 if(g2local_src[conn[ibasis]] != -1)
                     sset.push_back(ibasis);
+            }
             sconn_map[isel] = sset;
             
             // loop over source element quadrature points
@@ -257,6 +277,8 @@ namespace fastibem {
                 const auto& t1 = p_sel->tangent(sparent.s, sparent.t, nurbs::ParamDir::S);
                 const auto& t2 = p_sel->tangent(sparent.s, sparent.t, nurbs::ParamDir::T);
 
+                const double jpiola_s = nurbs::cross(t1, t2).length();
+                
                 // physical coordinate
                 sbasis_map[pair] = p_sel->basis(sparent.s, sparent.t, t1, t2);
                 const auto& ds_s = p_sel->localBasisDers(sparent.s, sparent.t, nurbs::DerivType::DS);
@@ -266,7 +288,7 @@ namespace fastibem {
                 nurbs::DoubleVec div_vec(p_sel->basisFuncN(), 0.0);
                 
                 for(unsigned ibasis = 0; ibasis < p_sel->basisFuncN(); ++ibasis)
-                    div_vec[ibasis] = ds_s[ibasis][0] + dt_s[ibasis][1];
+                    div_vec[ibasis] = 1./jpiola_s * (ds_s[ibasis][0] + dt_s[ibasis][1]);
                 sdiv_map[pair] = div_vec;
                 
                 // jacobian determinant
@@ -278,13 +300,14 @@ namespace fastibem {
         for(const auto& ifel : ifield_els)
         {
             const auto p_fel = forest().bezierElement(ifel);
-            const auto& fconn = p_fel->globalBasisFuncI();
+            //const auto& fconn = p_fel->globalBasisFuncI();
+            const auto& fconn = p_fel->signedGlobalBasisFuncI();
             
-            // const nurbs::UIntVec forder{3,3};
+            // const nurbs::UIntVec forder{2,2};
 			const auto& forder = p_fel->equalIntegrationOrder();
             
             // Determine set of require basis func indices
-            nurbs::UIntVec fset;
+            nurbs::IntVec fset;
             for(uint ibasis = 0; ibasis < p_fel->basisFuncN(); ++ibasis)
                 if(g2local_field[fconn[ibasis]] != -1)
                     fset.push_back(ibasis);
@@ -298,6 +321,8 @@ namespace fastibem {
                 const auto& t1 = p_fel->tangent(fparent.s, fparent.t, nurbs::ParamDir::S);
                 const auto& t2 = p_fel->tangent(fparent.s, fparent.t, nurbs::ParamDir::T);
                 
+                const double jpiola_f = nurbs::cross(t1, t2).length();
+                
                 const auto y = p_fel->eval(fparent);
                 const auto& basis_f = p_fel->basis(fparent.s, fparent.t, t1, t2);
                 const auto& ds_f = p_fel->localBasisDers(fparent.s, fparent.t, nurbs::DerivType::DS);
@@ -309,7 +334,9 @@ namespace fastibem {
                     if(ifel == isel)
                         continue;
                     const auto p_sel = forest().bezierElement(isel);
-                    const auto& sconn = p_sel->globalBasisFuncI();
+//                    const auto& sconn = p_sel->globalBasisFuncI();
+                    const auto& sconn = p_sel->signedGlobalBasisFuncI();
+                    
 					//const nurbs::UIntVec sorder{5,5};
                     const auto& sorder = p_sel->equalIntegrationOrder();
 
@@ -332,6 +359,9 @@ namespace fastibem {
                         for(const auto& itest : sconn_map[isel])
                         {
                             const auto& igbasis_s = sconn[itest];
+                            if(-1 == igbasis_s)
+                                continue;
+                            
                             const auto& ilocal_s = g2local_src[igbasis_s];
                             
                             // divergence (source)
@@ -340,14 +370,17 @@ namespace fastibem {
                             for(const auto& itrial : fset)
                             {
                                 const auto& igbasis_f = fconn[itrial];
+                                if(-1 == igbasis_f)
+                                    continue;
+                                
                                 const auto& ilocal_f = g2local_field[igbasis_f];
                                 
                                 // divergence (field)
-                                const double div_f = (ds_f[itrial][0] + dt_f[itrial][1]);
+                                const double div_f = 1./jpiola_f * (ds_f[itrial][0] + dt_f[itrial][1]);
                                 
                                 for(unsigned i = 0; i < 3; ++i)
                                     matrix[ilocal_s][ilocal_f] += ekernel * basis_s[itest][i] * basis_f[itrial][i] * jdet_s * jdet_f * sw * fw;
-                                matrix[ilocal_s][ilocal_f] -= 1.0 / (k * k) * div_s * div_f * ekernel * sw * fw;
+                                matrix[ilocal_s][ilocal_f] -= 1.0 / (k * k) * div_s * div_f * ekernel * jdet_s * jdet_f * sw * fw;
                                 
                             }
                         }
@@ -451,8 +484,8 @@ namespace fastibem {
                                             const unsigned ifieldel,
                                             const nurbs::Edge e1,
                                             const nurbs::Edge e2,
-                                            const std::map<unsigned, int>& g2locals,
-                                            const std::map<unsigned, int>& g2localf,
+                                            const std::map<int, int>& g2locals,
+                                            const std::map<int, int>& g2localf,
                                             MatrixType& mat) const
     {
         const auto& nsubcells = defaultSubcellN();
@@ -533,8 +566,8 @@ namespace fastibem {
     void HAssemblyEmag::evalVertexSingularity(const unsigned isrcel,
                                               const unsigned ifieldel,
                                               const nurbs::Vertex v2,
-                                              const std::map<unsigned, int>& g2locals,
-                                              const std::map<unsigned, int>& g2localf,
+                                              const std::map<int, int>& g2locals,
+                                              const std::map<int, int>& g2localf,
                                               MatrixType& mat) const
     {
         const auto& nsubcells = defaultSubcellN();
@@ -613,8 +646,8 @@ namespace fastibem {
     }
     
     void HAssemblyEmag::evalCoincidentSingularity(const unsigned iel,
-                                                  const std::map<unsigned, int>& g2locals,
-                                                  const std::map<unsigned, int>& g2localf,
+                                                  const std::map<int, int>& g2locals,
+                                                  const std::map<int, int>& g2localf,
                                                   MatrixType& mat) const
     {
 
@@ -622,7 +655,8 @@ namespace fastibem {
         const double k = wavenumber();
         
         const auto p_el = forest().bezierElement(iel);
-        const auto& conn = p_el->globalBasisFuncI();
+//        const auto& conn = p_el->globalBasisFuncI();
+        const auto& conn = p_el->signedGlobalBasisFuncI();
         
         const auto& forder = p_el->equalIntegrationOrder();
 		// const nurbs::UIntVec forder{5,5};
@@ -646,6 +680,7 @@ namespace fastibem {
             const auto& ds_s = p_el->localBasisDers(sparent.s, sparent.t, nurbs::DerivType::DS);
             const auto& dt_s = p_el->localBasisDers(sparent.s, sparent.t, nurbs::DerivType::DT);
             const double jdet_s = p_el->jacDet(sparent, t1, t2);
+            const double jpiola_s = nurbs::cross(t1, t2).length();
             
             // integrate over field elements
             for(nurbs::IPolarIntegrate igpt_f(sparent, forder, nsubcells); !igpt_f.isDone(); ++igpt_f)
@@ -663,6 +698,7 @@ namespace fastibem {
                 const auto& ds_f = p_el->localBasisDers(fparent.s, fparent.t, nurbs::DerivType::DS);
                 const auto& dt_f = p_el->localBasisDers(fparent.s, fparent.t, nurbs::DerivType::DT);
                 const double jdet_f = p_el->jacDet(fparent, t1, t2);
+                const double jpiola_f = nurbs::cross(t1, t2).length();
                 
                 // kernel
                 const double r = dist(x, y);
@@ -672,31 +708,36 @@ namespace fastibem {
                 for(size_t itest = 0; itest < conn.size(); ++itest)
                 {
                     const auto igbasis_s = conn[itest];
+                    if(-1 == igbasis_s)
+                        continue;
+                    
                     const auto ilocal_s = g2locals.at(igbasis_s);
                     if(ilocal_s == -1)
                         continue;
                     
                     // divergence (source)
-                    const double div_s = (ds_s[itest][0] + dt_s[itest][1]);
+                    const double div_s = 1./jpiola_s * (ds_s[itest][0] + dt_s[itest][1]);
                     
                     for(size_t itrial = 0; itrial < conn.size(); ++itrial)
                     {
                         const auto igbasis_f = conn[itrial];
+                        if(-1 == igbasis_f)
+                            continue;
+                        
                         const auto ilocal_f = g2localf.at(igbasis_f);
                         if(ilocal_f == -1)
                             continue;
                         
                         // divergence (field)
-                        const double div_f = (ds_f[itrial][0] + dt_f[itrial][1]);
+                        const double div_f = 1./jpiola_f * (ds_f[itrial][0] + dt_f[itrial][1]);
                         
                         for(unsigned i = 0; i < 3; ++i)
                             mat[ilocal_s][ilocal_f] += ekernel * basis_s[itest][i] * basis_f[itrial][i] * jdet_s * jdet_f * sw * fw;
-                        mat[ilocal_s][ilocal_f] -= 1.0 / (k * k) * div_s * div_f * ekernel * sw * fw;
+                        mat[ilocal_s][ilocal_f] -= 1.0 / (k * k) * div_s * div_f * ekernel * sw * fw * jdet_s * jdet_f;
                         
                     }
                 }
             }
         }
     }
-
 }

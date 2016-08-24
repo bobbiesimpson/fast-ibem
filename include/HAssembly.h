@@ -111,7 +111,6 @@ namespace fastibem {
             // Iterate over all bounding boxes
             for(nurbs::BoundingBoxIterator it(forest); !it.isDone(); ++it)
             {
-                
                 const uint icurrent = it.currentIndex();
                 
                 // insert point data
@@ -169,9 +168,13 @@ namespace fastibem {
             for(unsigned ielem = 0; ielem < forest.elemN(); ++ielem)
             {
                 const auto el = forest.bezierElement(ielem);
-                const auto gbasisvec = el->globalBasisFuncI();
+                const auto gbasisvec = el->signedGlobalBasisFuncI();
                 for(const auto& gindex : gbasisvec)
+                {
+                    if(-1 == gindex)
+                        continue;
                     mConnectedEls[gindex].push_back(ielem);
+                }
             }
         }
         
@@ -257,8 +260,8 @@ namespace fastibem {
                                  const unsigned ifieldel,
                                  const nurbs::Edge e1,
                                  const nurbs::Edge e2,
-                                 const std::map<unsigned, int>& g2locals,
-                                 const std::map<unsigned, int>& g2localf,
+                                 const std::map<int, int>& g2locals,
+                                 const std::map<int, int>& g2localf,
                                  MatrixType& mat) const;
         
         /// For the given source and field element with an vertex
@@ -267,16 +270,16 @@ namespace fastibem {
         void evalVertexSingularity(const unsigned isrcel,
                                    const unsigned ifieldel,
                                    const nurbs::Vertex v2,
-                                   const std::map<unsigned, int>& g2locals,
-                                   const std::map<unsigned, int>& g2localf,
+                                   const std::map<int, int>& g2locals,
+                                   const std::map<int, int>& g2localf,
                                    MatrixType& mat) const;
         
         /// For the given source and field element which are
         /// coincident, evaluate the emag kernel and assemble
         /// terms into the given matrix
         void evalCoincidentSingularity(const unsigned iel,
-                                       const std::map<unsigned, int>& g2locals,
-                                       const std::map<unsigned, int>& g2localf,
+                                       const std::map<int, int>& g2locals,
+                                       const std::map<int, int>& g2localf,
                                        MatrixType& mat) const;
         
         /// The wavevector accessor

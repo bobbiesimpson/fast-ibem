@@ -2,6 +2,7 @@
 #define FASTIBEM_FUNCTOR_H
 
 #include "Point3D.h"
+#include <cmath>
 
 namespace fastibem {
     
@@ -24,6 +25,28 @@ namespace fastibem {
     typedef Functor<double> DFunctor;
     typedef Functor<std::complex<double>> ComplexDFunctor;
     
+    /// Specialisation for an electromagnetic plane wave
+    class SinusoidalFunctor : public DFunctor {
+        
+    public:
+        
+        /// Constructor
+        SinusoidalFunctor() = default;
+        
+        /// 3 components
+        unsigned dimN() const
+        { return 3; }
+        
+        /// override function operator
+        std::vector<ReturnType> operator()(const nurbs::Point3D& x) const
+        {
+            //return {x[1], x[1], x[1]};
+            return { std::cos(x[0]), std::cos(x[1]), std::cos(x[2])};
+        }
+        
+    private:
+        
+    };
     
     /// Specialisation for an electromagnetic plane wave
     class EmagPlaneWave : public ComplexDFunctor {

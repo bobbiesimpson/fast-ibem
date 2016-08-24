@@ -29,36 +29,6 @@ if( Boost_FOUND )
   set(THIS_LINK_LIBS ${THIS_LINK_LIBS} ${Boost_LIBRARIES})
 endif()
 
-find_package(LAPACK)
-if(LAPACK_FOUND)
-  set(THIS_LINK_LIBS ${THIS_LINK_LIBS} ${LAPACK_LIBRARIES})
-endif()
-
-find_package(TBB)
-if(TBB_FOUND)
-  set(THIS_LINK_LIBS ${THIS_LINK_LIBS} ${TBB_LIBRARIES})
-endif()
-
-find_package(FFTW)
-if(FFTW_FOUND) 
-  set(THIS_LINK_LIBS ${THIS_LINK_LIBS} ${FFTW_LIBRARIES})
-endif()
-
-find_package(SCOTCH)
-if(SCOTCH_FOUND)
-  set(THIS_LINK_LIBS ${THIS_LINK_LIBS} ${SCOTCH_LIBRARIES})
-endif()
-
-find_package(METIS)
-if(METIS_FOUND)
-  set(THIS_LINK_LIBS ${THIS_LINK_LIBS} ${METIS_LIBRARIES})
-endif()
-
-find_package(MPI)
-if(MPI_FOUND)
-  set(THIS_LINK_LIBS ${THIS_LINK_LIBS} ${MPI_CXX_LIBRARIES})
-endif()
-
 # Add the Hlib library required for fast dense matrix computations
 set(hlibprodir "NOT-DEFINED" CACHE PATH "/opt")
 if(hlibprodir)
@@ -67,6 +37,11 @@ if(hlibprodir)
 else()
     message("HlibPro directory not defined")
     return()
+endif()
+
+find_package(blas)
+if(BLAS_FOUND)
+    set(THIS_LINK_LIBS ${THIS_LINK_LIBS} ${BLAS_LIBRARIES})
 endif()
 
 # add Eigen library include fileds
