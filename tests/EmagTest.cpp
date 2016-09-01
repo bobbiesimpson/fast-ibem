@@ -39,7 +39,7 @@ int main(int argc, char* argv[])
         error("Failed to load geometry from hbs data");
     
     //g.normalise();
-//    g.rescale(1/4.0);
+    //g.rescale(2.0/34.4);
     
     // Construct the necessary forests
     HDivForest multiforest(g);
@@ -84,7 +84,7 @@ int main(int argc, char* argv[])
     
     const Point3D kvec(k, 0.0, 0.0);
     const Point3D pvec(0.0, 1.0, 0.0);
-    
+//
     // Create class for assembling Hmatrix and force vector
     fastibem::HAssemblyEmag hassembly(multiforest,
                                       kvec,

@@ -12,6 +12,7 @@
 #include "Functor.h"
 
 #include <Eigen/Sparse>
+#include <Eigen/SVD>
 #include <vector>
 
 using namespace nurbs;
@@ -35,7 +36,8 @@ int main(int argc, char* argv[]) {
         if(!g.loadHBSFile(ifs))
             error("Failed to load geometry from hbs data");
         
-        EmagPlaneWave pw_functor(Point3D(25.0, 25.0, 0.0),
+//        g.rescale(2./34.0);
+        EmagPlaneWave pw_functor(Point3D(25.0, 0.0, 0.0),
                                  Point3D(0.0, 0.0, 1.0));
         
         SinusoidalFunctor s_functor;
@@ -99,7 +101,7 @@ int main(int argc, char* argv[]) {
                 const auto& jdet = el->jacDet(gpt);
                 
                 const auto pw = pw_functor(x);
-                //const auto func = s_functor(x);
+//                const auto func = s_functor(x);
                 
                 for(size_t itest = 0; itest < conn.size(); ++itest)
                 {
@@ -123,6 +125,7 @@ int main(int argc, char* argv[]) {
                     
                     for(unsigned j = 0; j < 3; ++j)
                     {
+//                        freal(gtest_i) += basis[itest][j] * func[j] * weight * jdet;
                         freal(gtest_i) += basis[itest][j] * pw[j].real() * weight * jdet;
                         fimag(gtest_i) += basis[itest][j] * pw[j].imag() * weight * jdet;
                     }
@@ -170,6 +173,7 @@ int main(int argc, char* argv[]) {
 //                }
 //            }
 //        }
+        
         Eigen::SimplicialCholesky<SpMat> chol(M);  // performs a Cholesky factorization of A
         Eigen::VectorXd xreal = chol.solve(freal);
         Eigen::VectorXd ximag = chol.solve(fimag);
@@ -180,7 +184,7 @@ int main(int argc, char* argv[]) {
         for(size_t i = 0; i < ndof; ++i)
         {
             std::complex<double> centry(xreal(i), ximag(i));
-//            std::complex<double> centry;
+//            std::complex<double> centry(1.0, 1.0);
 //            if(25 == i)
 //                centry = std::complex<double>(1.0, 1.0);
 //            else
@@ -188,6 +192,11 @@ int main(int argc, char* argv[]) {
             std::cout << centry << "\n";
             solnvec.push_back(std::complex<double>(centry));
         }
+        
+        // Condition number
+//        Eigen::JacobiSVD<Eigen::MatrixXd> svd(M);
+//        double cond = svd.singularValues()(0) / svd.singularValues()(svd.singularValues().size() - 1);
+//        std::cout << "Condition number = " << cond << "\n\n";
         
         // Output solution
         nurbs::OutputVTK output("projectiontest");

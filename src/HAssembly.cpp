@@ -251,7 +251,7 @@ namespace fastibem {
             const auto p_sel = forest().bezierElement(isel);
 			//const nurbs::UIntVec sorder{5,5};
 			
-			const auto& sorder = p_sel->equalIntegrationOrder();
+            const auto& sorder = p_sel->equalIntegrationOrder(p_sel->degenerate() ? 6 : 0);
             
             // compute set of basis func indices required
             nurbs::IntVec sset;
@@ -304,7 +304,7 @@ namespace fastibem {
             const auto& fconn = p_fel->signedGlobalBasisFuncI();
             
             // const nurbs::UIntVec forder{2,2};
-			const auto& forder = p_fel->equalIntegrationOrder();
+            const auto& forder = p_fel->equalIntegrationOrder(p_fel->degenerate() ? 6 : 0);
             
             // Determine set of require basis func indices
             nurbs::IntVec fset;
@@ -338,7 +338,7 @@ namespace fastibem {
                     const auto& sconn = p_sel->signedGlobalBasisFuncI();
                     
 					//const nurbs::UIntVec sorder{5,5};
-                    const auto& sorder = p_sel->equalIntegrationOrder();
+                    const auto& sorder = p_sel->equalIntegrationOrder(p_sel->degenerate() ? 6 : 0);
 
                     // loop over source element quadrature points
                     for(nurbs::IElemIntegrate igpt_s(sorder); !igpt_s.isDone(); ++igpt_s)
@@ -394,7 +394,7 @@ namespace fastibem {
 //        {
 //            const auto& igsrcel = pair.first;
 //            const auto p_sel = forest().bezierElement(igsrcel);
-//            const auto& sconn = p_sel->globalBasisFuncI();
+//            const auto& sconn = p_sel->signedGlobalBasisFuncI();
 //
 //            const auto& sorder = p_sel->equalIntegrationOrder();
 //
@@ -414,18 +414,19 @@ namespace fastibem {
 //                const auto& ds_s = p_sel->localBasisDers(sparent.s, sparent.t, nurbs::DerivType::DS);
 //                const auto& dt_s = p_sel->localBasisDers(sparent.s, sparent.t, nurbs::DerivType::DT);
 //                const double jdet_s = p_sel->jacDet(sparent.s, sparent.t, t1, t2);
+//                const double jpiola_s = nurbs::cross(t1, t2).length();
 //                
 //                // loop over field elements
 //                for(const auto& igfieldel : pair.second)
 //                {
 //                    const auto p_fel = forest().bezierElement(igfieldel);
-//                    const auto& fconn = p_fel->globalBasisFuncI();
+//                    const auto& fconn = p_fel->signedGlobalBasisFuncI();
 //                    
-//                    nurbs::UIntVec forder;//{2,2};
-//                    if(nurbs::dist(x, p_fel->eval(0.0, 0.0)) > p_fel->size() * 2.0)
-//                        forder = nurbs::UIntVec{2,2};
-//                    else
-//                        forder = p_fel->equalIntegrationOrder();
+////                    nurbs::UIntVec forder;//{2,2};
+////                    if(nurbs::dist(x, p_fel->eval(0.0, 0.0)) > p_fel->size() * 2.0)
+////                        forder = nurbs::UIntVec{2,2};
+////                    else
+//                        const auto forder = p_fel->equalIntegrationOrder();
 //                    
 //                    // integrate over field elements
 //                    for(nurbs::IElemIntegrate igpt_f(forder); !igpt_f.isDone(); ++igpt_f)
@@ -441,6 +442,7 @@ namespace fastibem {
 //                        const auto& ds_f = p_fel->localBasisDers(fparent.s, fparent.t, nurbs::DerivType::DS);
 //                        const auto& dt_f = p_fel->localBasisDers(fparent.s, fparent.t, nurbs::DerivType::DT);
 //                        const double jdet_f = p_fel->jacDet(fparent, t1, t2);
+//                        const double jpiola_f = nurbs::cross(t1, t2).length();
 //                        
 //                        // kernel
 //                        const double r = dist(x, y);
@@ -450,26 +452,32 @@ namespace fastibem {
 //                        for(size_t itest = 0; itest < sconn.size(); ++itest)
 //                        {
 //                            const auto igbasis_s = sconn[itest];
+//                            if(igbasis_s == -1)
+//                                continue;
+//                            
 //                            const auto ilocal_s = g2local_src[igbasis_s];
 //                            if(ilocal_s == -1)
 //                                continue;
 //                            
 //                            // divergence (source)
-//                            const double div_s = (ds_s[itest][0] + dt_s[itest][1]);
+//                            const double div_s = 1./jpiola_s *(ds_s[itest][0] + dt_s[itest][1]);
 //                            
 //                            for(size_t itrial = 0; itrial < fconn.size(); ++itrial)
 //                            {
 //                                const auto igbasis_f = fconn[itrial];
+//                                if(igbasis_f == -1)
+//                                    continue;
+//                                
 //                                const auto ilocal_f = g2local_field[igbasis_f];
 //                                if(ilocal_f == -1)
 //                                    continue;
 //                                
 //                                // divergence (field)
-//                                const double div_f = (ds_f[itrial][0] + dt_f[itrial][1]);
+//                                const double div_f = 1./jpiola_f * (ds_f[itrial][0] + dt_f[itrial][1]);
 //                                
 //                                for(unsigned i = 0; i < 3; ++i)
 //                                    matrix[ilocal_s][ilocal_f] += ekernel * basis_s[itest][i] * basis_f[itrial][i] * jdet_s * jdet_f * sw * fw;
-//                                matrix[ilocal_s][ilocal_f] -= 1.0 / (k * k) * div_s * div_f * ekernel * sw * fw;
+//                                matrix[ilocal_s][ilocal_f] -= 1.0 / (k * k) * div_s * div_f * ekernel * jdet_s * jdet_f * sw * fw;
 //                                
 //                            }
 //                        }
@@ -494,12 +502,12 @@ namespace fastibem {
         
         // source element and connectivity
         const auto p_sel = forest().bezierElement(isrcel);
-        const auto& sconn = p_sel->globalBasisFuncI();
+        const auto& sconn = p_sel->signedGlobalBasisFuncI();
         const auto& sorder = p_sel->equalIntegrationOrder();
         
         // field element and connectivity
         const auto p_fel = forest().bezierElement(ifieldel);
-        const auto& fconn = p_fel->globalBasisFuncI();
+        const auto& fconn = p_fel->signedGlobalBasisFuncI();
         const auto& forder = p_fel->equalIntegrationOrder();
         
         // and finally loop over all regular integrals
@@ -508,12 +516,17 @@ namespace fastibem {
             const auto sparent = igpt_s.get();
             const auto sw = igpt_s.getWeight();
             
+            // cached tangent entries
+            const auto& t1 = p_sel->tangent(sparent.s, sparent.t, nurbs::ParamDir::S);
+            const auto& t2 = p_sel->tangent(sparent.s, sparent.t, nurbs::ParamDir::T);
+            
             // source element parameters
             const auto x = p_sel->eval(sparent);
-            const auto& basis_s = p_sel->basis(sparent.s, sparent.t);
+            const auto& basis_s = p_sel->basis(sparent.s, sparent.t, t1, t2);
             const auto& ds_s = p_sel->localBasisDers(sparent.s, sparent.t, nurbs::DerivType::DS);
             const auto& dt_s = p_sel->localBasisDers(sparent.s, sparent.t, nurbs::DerivType::DT);
-            const double jdet_s = p_sel->jacDet(sparent);
+            const double jdet_s = p_sel->jacDet(sparent, t1, t2);
+            const double jpiola_s = nurbs::cross(t1, t2).length();
             
             // integrate over field elements
             for(nurbs::IPolarIntegrate igpt_f(nurbs::projectPt(sparent, e1, e2), forder, nsubcells); !igpt_f.isDone(); ++igpt_f)
@@ -521,12 +534,17 @@ namespace fastibem {
                 const auto fparent = igpt_f.get();
                 const auto fw = igpt_f.getWeight();
 
+                // cached tangent entries
+                const auto& t1 = p_fel->tangent(sparent.s, sparent.t, nurbs::ParamDir::S);
+                const auto& t2 = p_fel->tangent(sparent.s, sparent.t, nurbs::ParamDir::T);
+                
                 // field element parameters
                 const auto y = p_fel->eval(fparent);
-                const auto& basis_f = p_fel->basis(fparent.s, fparent.t);
+                const auto& basis_f = p_fel->basis(fparent.s, fparent.t, t1, t2);
                 const auto& ds_f = p_fel->localBasisDers(fparent.s, fparent.t, nurbs::DerivType::DS);
                 const auto& dt_f = p_fel->localBasisDers(fparent.s, fparent.t, nurbs::DerivType::DT);
-                const double jdet_f = p_fel->jacDet(fparent);
+                const double jdet_f = p_fel->jacDet(fparent, t1, t2);
+                const double jpiola_f = nurbs::cross(t1, t2).length();
                 
                 // kernel
                 const double r = dist(x, y);
@@ -536,26 +554,32 @@ namespace fastibem {
                 for(size_t itest = 0; itest < sconn.size(); ++itest)
                 {
                     const auto igbasis_s = sconn[itest];
+                    if(igbasis_s == -1)
+                        continue;
+                    
                     const auto ilocal_s = g2locals.at(igbasis_s);
                     if(ilocal_s == -1)
                         continue;
                     
                     // divergence (source)
-                    const double div_s = (ds_s[itest][0] + dt_s[itest][1]);
+                    const double div_s = 1./jpiola_s * (ds_s[itest][0] + dt_s[itest][1]);
                     
                     for(size_t itrial = 0; itrial < fconn.size(); ++itrial)
                     {
                         const auto igbasis_f = fconn[itrial];
+                        if(igbasis_f == -1)
+                            continue;
+                        
                         const auto ilocal_f = g2localf.at(igbasis_f);
                         if(ilocal_f == -1)
                             continue;
                         
                         // divergence (field)
-                        const double div_f = (ds_f[itrial][0] + dt_f[itrial][1]);
+                        const double div_f = 1./jpiola_f * (ds_f[itrial][0] + dt_f[itrial][1]);
                         
                         for(unsigned i = 0; i < 3; ++i)
                             mat[ilocal_s][ilocal_f] += ekernel * basis_s[itest][i] * basis_f[itrial][i] * jdet_s * jdet_f * sw * fw;
-                        mat[ilocal_s][ilocal_f] -= 1.0 / (k * k) * div_s * div_f * ekernel * sw * fw;
+                        mat[ilocal_s][ilocal_f] -= 1.0 / (k * k) * div_s * div_f * ekernel * jdet_s * jdet_f * sw * fw;
                         
                     }
                 }
@@ -576,12 +600,12 @@ namespace fastibem {
         
         // source element and connectivity
         const auto p_sel = forest().bezierElement(isrcel);
-        const auto& sconn = p_sel->globalBasisFuncI();
+        const auto& sconn = p_sel->signedGlobalBasisFuncI();
         const auto& sorder = p_sel->equalIntegrationOrder();
         
         // field element and connectivity
         const auto p_fel = forest().bezierElement(ifieldel);
-        const auto& fconn = p_fel->globalBasisFuncI();
+        const auto& fconn = p_fel->signedGlobalBasisFuncI();
         const auto& forder = p_fel->equalIntegrationOrder();
         
         // and finally loop over all regular integrals
@@ -590,12 +614,17 @@ namespace fastibem {
             const auto sparent = igpt_s.get();
             const auto sw = igpt_s.getWeight();
             
+            // cached tangent entries
+            const auto& t1 = p_sel->tangent(sparent.s, sparent.t, nurbs::ParamDir::S);
+            const auto& t2 = p_sel->tangent(sparent.s, sparent.t, nurbs::ParamDir::T);
+            
             // source element parameters
             const auto x = p_sel->eval(sparent);
-            const auto& basis_s = p_sel->basis(sparent.s, sparent.t);
+            const auto& basis_s = p_sel->basis(sparent.s, sparent.t, t1, t2);
             const auto& ds_s = p_sel->localBasisDers(sparent.s, sparent.t, nurbs::DerivType::DS);
             const auto& dt_s = p_sel->localBasisDers(sparent.s, sparent.t, nurbs::DerivType::DT);
-            const double jdet_s = p_sel->jacDet(sparent);
+            const double jdet_s = p_sel->jacDet(sparent, t1, t2);
+            const double jpiola_s = nurbs::cross(t1, t2).length();
             
             // integrate over field elements
             for(nurbs::IPolarIntegrate igpt_f(nurbs::paramPt(v2), forder, nsubcells); !igpt_f.isDone(); ++igpt_f)
@@ -603,12 +632,16 @@ namespace fastibem {
                 const auto fparent = igpt_f.get();
                 const auto fw = igpt_f.getWeight();
                 
+                const auto& t1 = p_fel->tangent(sparent.s, sparent.t, nurbs::ParamDir::S);
+                const auto& t2 = p_fel->tangent(sparent.s, sparent.t, nurbs::ParamDir::T);
+                
                 // field element parameters
                 const auto y = p_fel->eval(fparent);
-                const auto& basis_f = p_fel->basis(fparent.s, fparent.t);
+                const auto& basis_f = p_fel->basis(fparent.s, fparent.t, t1, t2);
                 const auto& ds_f = p_fel->localBasisDers(fparent.s, fparent.t, nurbs::DerivType::DS);
                 const auto& dt_f = p_fel->localBasisDers(fparent.s, fparent.t, nurbs::DerivType::DT);
-                const double jdet_f = p_fel->jacDet(fparent);
+                const double jdet_f = p_fel->jacDet(fparent, t1, t2);
+                const double jpiola_f = nurbs::cross(t1, t2).length();
                 
                 // kernel
                 const double r = dist(x, y);
@@ -618,26 +651,32 @@ namespace fastibem {
                 for(size_t itest = 0; itest < sconn.size(); ++itest)
                 {
                     const auto igbasis_s = sconn[itest];
+                    if(igbasis_s == -1)
+                        continue;
+                    
                     const auto ilocal_s = g2locals.at(igbasis_s);
                     if(ilocal_s == -1)
                         continue;
                     
                     // divergence (source)
-                    const double div_s = (ds_s[itest][0] + dt_s[itest][1]);
+                    const double div_s = 1./jpiola_s * (ds_s[itest][0] + dt_s[itest][1]);
                     
                     for(size_t itrial = 0; itrial < fconn.size(); ++itrial)
                     {
                         const auto igbasis_f = fconn[itrial];
+                        if(igbasis_f == -1)
+                            continue;
+                        
                         const auto ilocal_f = g2localf.at(igbasis_f);
                         if(ilocal_f == -1)
                             continue;
                         
                         // divergence (field)
-                        const double div_f = (ds_f[itrial][0] + dt_f[itrial][1]);
+                        const double div_f = 1./jpiola_f * (ds_f[itrial][0] + dt_f[itrial][1]);
                         
                         for(unsigned i = 0; i < 3; ++i)
                             mat[ilocal_s][ilocal_f] += ekernel * basis_s[itest][i] * basis_f[itrial][i] * jdet_s * jdet_f * sw * fw;
-                        mat[ilocal_s][ilocal_f] -= 1.0 / (k * k) * div_s * div_f * ekernel * sw * fw;
+                        mat[ilocal_s][ilocal_f] -= 1.0 / (k * k) * div_s * div_f * ekernel * jdet_s * jdet_f * sw * fw;
                         
                     }
                 }

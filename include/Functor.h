@@ -40,7 +40,7 @@ namespace fastibem {
         /// override function operator
         std::vector<ReturnType> operator()(const nurbs::Point3D& x) const
         {
-            //return {x[1], x[1], x[1]};
+            //return {x[0], 0.0, 0.0};
             return { std::cos(x[0]), std::cos(x[1]), std::cos(x[2])};
         }
         
