@@ -10,6 +10,8 @@
 #include "OutputVTK.h"
 #include "HConformingForest.h"
 #include "Functor.h"
+#include "NedelecVectorElement.h"
+#include "Norm.h"
 
 #include <Eigen/Sparse>
 #include <Eigen/SVD>
@@ -37,8 +39,8 @@ int main(int argc, char* argv[]) {
             error("Failed to load geometry from hbs data");
         
 //        g.rescale(2./34.0);
-        EmagPlaneWave pw_functor(Point3D(25.0, 0.0, 0.0),
-                                 Point3D(0.0, 0.0, 1.0));
+        EmagPlaneWave pw_functor(Point3D(5.0, 0.0, 0.0),
+                                 Point3D(0.0, 1.0, 0.0));
         
         SinusoidalFunctor s_functor;
         
@@ -179,28 +181,23 @@ int main(int argc, char* argv[]) {
         Eigen::VectorXd ximag = chol.solve(fimag);
         
         std::vector<std::complex<double>> solnvec;
+        std::vector<double> real_solnvec;
         
         std::cout << "solution\n\n";
         for(size_t i = 0; i < ndof; ++i)
         {
             std::complex<double> centry(xreal(i), ximag(i));
-//            std::complex<double> centry(1.0, 1.0);
-//            if(25 == i)
-//                centry = std::complex<double>(1.0, 1.0);
-//            else
-//                centry = std::complex<double>(0.0, 0.0);
             std::cout << centry << "\n";
             solnvec.push_back(std::complex<double>(centry));
+            real_solnvec.push_back(xreal(i));
         }
         
-        // Condition number
-//        Eigen::JacobiSVD<Eigen::MatrixXd> svd(M);
-//        double cond = svd.singularValues()(0) / svd.singularValues()(svd.singularValues().size() - 1);
-//        std::cout << "Condition number = " << cond << "\n\n";
-        
         // Output solution
-        nurbs::OutputVTK output("projectiontest");
+        nurbs::OutputVTK output("bspline_projectiontest");
         output.outputComplexVectorField(divforest, "no_name", solnvec);
+        
+        // Norm
+//        std::cout << "L2 graph norm: " << nurbs::L2graphNorm(divforest, real_solnvec) << "\n";
         
         return EXIT_SUCCESS;
     }
