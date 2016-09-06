@@ -10,7 +10,6 @@
 #include "OutputVTK.h"
 #include "HConformingForest.h"
 #include "Functor.h"
-#include "NedelecVectorElement.h"
 #include "Norm.h"
 
 #include <Eigen/Sparse>
