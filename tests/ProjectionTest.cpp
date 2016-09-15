@@ -11,6 +11,7 @@
 #include "HConformingForest.h"
 #include "Functor.h"
 #include "Norm.h"
+#include "NURBSCache.h"
 
 #include <Eigen/Sparse>
 #include <Eigen/SVD>
@@ -37,7 +38,7 @@ int main(int argc, char* argv[]) {
         if(!g.loadHBSFile(ifs))
             error("Failed to load geometry from hbs data");
         
-//        g.rescale(2./34.0);
+//        g.rescale(2.0/64.0);
         EmagPlaneWave pw_functor(Point3D(5.0, 0.0, 0.0),
                                  Point3D(0.0, 1.0, 0.0));
         
@@ -62,6 +63,7 @@ int main(int argc, char* argv[]) {
                 refine = input;
             }
         }
+
         divforest.hrefine(refine);
         
         // assembly
@@ -175,6 +177,7 @@ int main(int argc, char* argv[]) {
 //            }
 //        }
         
+
         Eigen::SimplicialCholesky<SpMat> chol(M);  // performs a Cholesky factorization of A
         Eigen::VectorXd xreal = chol.solve(freal);
         Eigen::VectorXd ximag = chol.solve(fimag);
@@ -182,21 +185,28 @@ int main(int argc, char* argv[]) {
         std::vector<std::complex<double>> solnvec;
         std::vector<double> real_solnvec;
         
-        std::cout << "solution\n\n";
         for(size_t i = 0; i < ndof; ++i)
         {
             std::complex<double> centry(xreal(i), ximag(i));
-            std::cout << centry << "\n";
-            solnvec.push_back(std::complex<double>(centry));
+//            std::complex<double> centry = (0==i) ? std::complex<double>(1.0, 1.0) : std::complex<double>(0.0, 0.0);
+//            std::cout << centry << "\n";
+            solnvec.push_back(centry);
             real_solnvec.push_back(xreal(i));
         }
         
+        nurbshelper::NURBSCache::Instance().clear();
+        
         // Output solution
-        nurbs::OutputVTK output("bspline_projectiontest");
+        std::string filename("sphere_bspline_p1x0_h");
+        filename.append(std::to_string(refine));
+        nurbs::OutputVTK output(filename);
         output.outputComplexVectorField(divforest, "no_name", solnvec);
         
+        nurbshelper::NURBSCache::Instance().clear();
+        
         // Norm
-//        std::cout << "L2 graph norm: " << nurbs::L2graphNorm(divforest, real_solnvec) << "\n";
+        std::cout << "L2 graph norm: " << nurbs::L2graphNorm(divforest, solnvec) << "\n";
+        
         
         return EXIT_SUCCESS;
     }
