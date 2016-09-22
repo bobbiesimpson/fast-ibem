@@ -72,18 +72,18 @@ int main(int argc, char* argv[])
     const double k = std::atof(argv[2]);
     
 //    // Polarisation vector and wavevector for sphere problem
-//    const Point3D pvec(0.0, 0.0, 1.0);
-//    const Point3D kvec(k, 0.0, 0.0);
-//    
-//    const double omega = k;
-//    const double mu = 1.0;
-    
-    const double mu = 1.257e-6;
-    const double epsilon = 8.854e-12;
-    const double omega = k / std::sqrt(mu * epsilon);
-    
-    const Point3D kvec(k, 0.0, 0.0);
     const Point3D pvec(0.0, 1.0, 0.0);
+    const Point3D kvec(k, 0.0, 0.0);
+    
+    const double omega = k;
+    const double mu = 1.0;
+//    
+//    const double mu = 1.257e-6;
+//    const double epsilon = 8.854e-12;
+//    const double omega = k / std::sqrt(mu * epsilon);
+//    
+//    const Point3D kvec(k, 0.0, 0.0);
+//    const Point3D pvec(0.0, 1.0, 0.0);
 
     // Create class for assembling Hmatrix and force vector
     fastibem::HAssemblyEmag hassembly(multiforest,
@@ -96,6 +96,7 @@ int main(int argc, char* argv[])
 
     // Force vector
     auto f = A->row_vector();
+    
     hassembly.assembleForceVector(f.get());
 
 	// clear the cache
@@ -148,6 +149,10 @@ int main(int argc, char* argv[])
         // Output solution
         nurbs::OutputVTK output("emagtest");
         output.outputComplexVectorField(multiforest, "surface_current", solnvec);
+        
+        output.setFilename("analytical");
+        output.outputAnalyticalMieComplexVectorField(multiforest, "surface_current", k);
+        
     }
     else
         std::cout << "  not converged in " << timer << " and "

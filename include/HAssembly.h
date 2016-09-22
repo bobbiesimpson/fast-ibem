@@ -362,7 +362,7 @@ namespace fastibem {
                         for (size_t i = 0; i < n; ++i) {
                             const auto cval = rmat[i][j];
                             matrix[j*n +i] = HLIB::complex(cval.real(),
-                                                       cval.imag());
+                                                           cval.imag());
                         }
                 
             }

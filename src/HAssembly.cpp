@@ -40,6 +40,9 @@ namespace fastibem {
     {
         assert(f->size() == forest().globalDofN());
         
+//        const std::complex<double> i(0.0, 1.0);
+//        const std::complex<double> const1 = i * mu() * omega();
+        
         // temp force vector
         std::vector<std::complex<double>> ftemp(f->size());
         
@@ -79,6 +82,7 @@ namespace fastibem {
                         continue; // degenerate dof
                     
                     for(unsigned j = 0; j < 3; ++j)
+//                        ftemp[igbasis] -= i / (mu() * omega()) * basis[ibasis][j] * pw[j] * w * jdet;
                         ftemp[igbasis] += 1.0 / std::complex<double>(0.0, omega() * mu()) * basis[ibasis][j] * pw[j] * w * jdet;
                 }
             }
@@ -100,6 +104,8 @@ namespace fastibem {
             matrix[i].resize(cols.size());
         
         const auto k = wavenumber();
+        
+        const std::complex<double> i(0.0, 1.0);
         
         // Vectors of source (test) and field (trial) elements we must compute
         std::vector<unsigned> isrc_els;
@@ -364,7 +370,7 @@ namespace fastibem {
                         const double jdet_f = p_fel->jacDet(fparent, t1, t2);
                         
                         const double r = dist(x, y);
-                        const auto ekernel = std::exp(std::complex<double>(0.0, -k * r)) / (4.0 * nurbs::PI * r);
+                        const auto ekernel = std::exp(-i * k * r) / (4.0 * nurbs::PI * r);
                         
                         // now loop over test and trial functions
                         for(const auto& itest : sconn_map[isel])
@@ -703,6 +709,7 @@ namespace fastibem {
 
         
         const double k = wavenumber();
+        const std::complex<double> i(0.0, 1.0);
         
         const auto p_el = forest().bezierElement(iel);
 //        const auto& conn = p_el->globalBasisFuncI();
@@ -753,7 +760,7 @@ namespace fastibem {
                 
                 // kernel
                 const double r = dist(x, y);
-                const auto ekernel = std::exp(std::complex<double>(0.0, -k * r)) / (4.0 * nurbs::PI * r);
+                const auto ekernel = std::exp(-i * k * r) / (4.0 * nurbs::PI * r);
                 
                 // now loop over test and trial functions
                 for(size_t itest = 0; itest < conn.size(); ++itest)
