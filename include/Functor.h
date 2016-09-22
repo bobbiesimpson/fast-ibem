@@ -78,11 +78,13 @@ namespace fastibem {
         /// override function operator
         std::vector<ReturnType> operator()(const nurbs::Point3D& x) const
         {
+            const std::complex<double> i(0.0, 1.0);
+            
             const auto& p = polarVec();
             const auto& k = waveVec();
             
             std::vector<std::complex<double>> result{p[0], p[1], p[2]};
-            const auto wave = std::exp(-std::complex<double>(0.0, dot(k, x)));
+            const std::complex<double> wave = std::exp(-i * dot(k, x));
             for(auto& r : result)
                 r *= wave;
             return result;
