@@ -9,6 +9,10 @@
 #include "OutputVTK.h"
 #include "hlib.hh"
 #include "NURBSCache.h"
+//
+#include "Epetra_SerialDenseVector.h"
+#include "Epetra_SerialDenseMatrix.h"
+#include "Epetra_SerialDenseSolver.h"
 
 using namespace nurbs;
 
@@ -63,16 +67,17 @@ int main(int argc, char* argv[])
 
 //    multiforest.prefine(1);
     multiforest.hrefine(refine);
+    const auto ndof = multiforest.globalDofN();
     
     std::cout << "Performing emag scattering analysis on multiforest with "
               << multiforest.elemN() << " elements, "
-              << multiforest.globalDofN() << " dof.....\n";
+              << ndof << " dof.....\n";
     
     // Some hardcoded input parameters
     const double k = std::atof(argv[2]);
     
 //    // Polarisation vector and wavevector for sphere problem
-    const Point3D pvec(0.0, 1.0, 0.0);
+    const std::vector<std::complex<double>> pvec{0.0, std::complex<double>(0.0, -1.0), 0.0};
     const Point3D kvec(k, 0.0, 0.0);
     
     const double omega = k;
@@ -107,6 +112,9 @@ int main(int argc, char* argv[])
     HLIB::TConsoleProgressBar       progress;
     
     // Preconditioning
+    auto TempA = A->copy();
+    auto TempF = f->copy();
+    
     auto  B = A->copy();
     timer.start();
     auto  A_inv = HLIB::factorise_inv( B.get(), hassembly.trunAccInstance(), & progress );
@@ -142,7 +150,6 @@ int main(int argc, char* argv[])
         {
             const auto entry = x->centry(i);
             solnvec.push_back(std::complex<double>(entry.re(), entry.im()));
-            //solnvec.push_back(std::complex<double>(1.0, 0.0));
             std::cout << entry.re() << "," << entry.im() << "\n";
         }
         
@@ -158,6 +165,47 @@ int main(int argc, char* argv[])
         std::cout << "  not converged in " << timer << " and "
         << solve_info.n_iter() << " steps " << std::endl;
 
+//    std::vector<uint> rows(ndof);
+//    std::vector<uint> cols(ndof);
+//    std::iota(rows.begin(), rows.end(), 0);
+//    std::iota(cols.begin(), cols.end(), 0);
+//    
+//    auto Ktemp = hassembly.evalSubmatrix(rows , cols);
+//    hassembly.clusterTree()->perm_i2e()->permute( TempF.get() );
+//    
+//    Epetra_SerialDenseMatrix K(ndof * 2, ndof * 2 );
+//    /// Initialise B matrix containing shape function products
+//    Epetra_SerialDenseVector u(ndof * 2);
+//    // initialize the solution vector
+//    Epetra_SerialDenseVector force(ndof * 2 );
+//    
+//    for(size_t i = 0; i < ndof; ++i)
+//    {
+//        const auto fval = TempF->centry(i);
+//        force(i) = fval.im();
+//        force(i+ndof) = -fval.re();
+//        
+//        for(size_t j = 0; j < ndof; ++j)
+//        {
+//            const auto aval = Ktemp[i][j];
+//            K(i,j) = aval.real();
+//            K(i,j + ndof) = -aval.imag();
+//            K(i+ndof,j) = aval.imag();
+//            K(i+ndof,j+ndof) = aval.real();
+//        }
+//    }
+//    
+//    Epetra_SerialDenseSolver t_solver;
+//    t_solver.SetMatrix( K );
+//    t_solver.SetVectors(u, force);
+//    t_solver.Solve();
+//    
+//    std::cout << "Trilinos solution\n\n";
+//    for(uint i = 0; i < ndof; ++i)
+//        std::cout << u[i] << ", " << u[i+ndof] << "\n";
+    
+    
+    
     
     return EXIT_SUCCESS;
 }

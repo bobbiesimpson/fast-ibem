@@ -222,7 +222,7 @@ namespace fastibem {
         /// Construcotr
         HAssemblyEmag(const nurbs::MultiForest& f,
                       const nurbs::Point3D& wvec,
-                      const nurbs::Point3D& pvec,
+                      const std::vector<std::complex<double>>& pvec,
                       const double mu,
                       const double omega,
                       const std::vector<unsigned>& qorder = {4,4},
@@ -247,11 +247,13 @@ namespace fastibem {
         virtual void assembleForceVector(HLIB::TVector* f) const override;
         
         
-    private:
+
         
         /// Evaluate the submatrix for the given row and column indices
         MatrixType evalSubmatrix(const std::vector<uint>& rows,
                                  const std::vector<uint>& cols) const;
+        
+            private:
         
         /// For the given source and field element with an edge
         /// singularity, evaluate the emag kernel and assemble
@@ -289,7 +291,7 @@ namespace fastibem {
         const double wavenumber() const { return mWavenumber; }
         
         /// The polarisation vector accessor
-        const nurbs::Point3D& polarvector() const { return mPolarVec; }
+        const std::vector<std::complex<double>>& polarvector() const { return mPolarVec; }
         
         /// Mu material parameter accessor
         const double mu() const { return mMu; }
@@ -307,7 +309,7 @@ namespace fastibem {
         const nurbs::Point3D mWaveVec;
         
         /// The polarisation vector
-        const nurbs::Point3D mPolarVec;
+        const std::vector<std::complex<double>> mPolarVec;
         
         /// Mu material parameter
         const double mMu;
@@ -358,12 +360,13 @@ namespace fastibem {
                     
                 auto rmat = assemblyInstance()->evalSubmatrix(gcolloc_vec, gbasis_vec);
                     
-                    for(size_t j = 0; j < m; ++j)
-                        for (size_t i = 0; i < n; ++i) {
-                            const auto cval = rmat[i][j];
-                            matrix[j*n +i] = HLIB::complex(cval.real(),
-                                                           cval.imag());
-                        }
+                for(size_t j = 0; j < m; ++j)
+                    for (size_t i = 0; i < n; ++i)
+                    {
+                        const auto cval = rmat[i][j];
+                        matrix[j*n +i] = HLIB::complex(cval.real(),
+                                                       cval.imag());
+                    }
                 
             }
             
@@ -371,6 +374,8 @@ namespace fastibem {
             
             /// Collocation BE matrix is non-symmetric
             virtual HLIB::matform_t matrix_format() const override { return HLIB::MATFORM_NONSYM; }
+            
+            virtual bool is_complex() const override { return true; }
             
         private:
             
