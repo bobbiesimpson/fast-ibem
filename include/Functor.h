@@ -65,7 +65,7 @@ namespace fastibem {
         
         /// Constructor
         EmagPlaneWave(const nurbs::Point3D& kvec,
-                      const nurbs::Point3D& pvec)
+                      const std::vector<std::complex<double>>& pvec)
         :
         mWaveVector(kvec),
         mPolarisationVector(pvec) {}
@@ -78,15 +78,15 @@ namespace fastibem {
         /// override function operator
         std::vector<ReturnType> operator()(const nurbs::Point3D& x) const
         {
-            const std::complex<double> i(0.0, 1.0);
+            const std::complex<double> iconst(0.0, 1.0);
             
             const auto& p = polarVec();
             const auto& k = waveVec();
             
-            std::vector<std::complex<double>> result{p[0], p[1], p[2]};
-            const std::complex<double> wave = std::exp(-i * dot(k, x));
-            for(auto& r : result)
-                r *= wave;
+            std::vector<std::complex<double>> result(3);
+            const std::complex<double> wave = std::exp(-iconst * dot(k, x));
+            for(size_t i = 0; i < 3; ++i)
+                result[i] =  p[i] * wave;
             return result;
         }
         
@@ -94,11 +94,11 @@ namespace fastibem {
         
         const nurbs::Point3D& waveVec() const { return mWaveVector; }
         
-        const nurbs::Point3D& polarVec() const { return mPolarisationVector; }
+        const std::vector<std::complex<double>>& polarVec() const { return mPolarisationVector; }
         
         const nurbs::Point3D mWaveVector;
         
-        const nurbs::Point3D mPolarisationVector;
+        const std::vector<std::complex<double>> mPolarisationVector;
     };
 }
 #endif

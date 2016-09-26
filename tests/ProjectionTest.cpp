@@ -40,7 +40,7 @@ int main(int argc, char* argv[]) {
         
 //        g.rescale(2.0/64.0);
         EmagPlaneWave pw_functor(Point3D(5.0, 0.0, 0.0),
-                                 Point3D(0.0, 1.0, 0.0));
+                                 {0.0, 1.0, 0.0});
         
         SinusoidalFunctor s_functor;
         

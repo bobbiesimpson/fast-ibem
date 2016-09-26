@@ -44,6 +44,14 @@ if(BLAS_FOUND)
     set(THIS_LINK_LIBS ${THIS_LINK_LIBS} ${BLAS_LIBRARIES})
 endif()
 
+#FIND_PACKAGE( Trilinos REQUIRED)
+#IF( Trilinos_FOUND )
+#INCLUDE_DIRECTORIES( ${Trilinos_INCLUDE_DIRS} ${Trilinos_TPL_INCLUDE_DIRS} )
+#LINK_DIRECTORIES(${Trilinos_LIBRARY_DIRS}
+#${Trilinos_TPL_LIBRARY_DIRS} )
+#SET( THIS_LINK_LIBS ${THIS_LINK_LIBS} ${Trilinos_LIBRARIES} ${Trilinos_TPL_LIBRARIES}  )
+#ENDIF()
+
 # add Eigen library include fileds
 include_directories(SYSTEM ${fast-ibem-SOURCE_DIR}/libs})
 
