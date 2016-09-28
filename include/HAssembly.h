@@ -253,7 +253,20 @@ namespace fastibem {
         MatrixType evalSubmatrix(const std::vector<uint>& rows,
                                  const std::vector<uint>& cols) const;
         
-            private:
+        /// Wave vector setter
+        void setWaveVector(const nurbs::Point3D& kvec)
+        {
+            mWaveVec = kvec;
+            mWavenumber = kvec.length();
+        }
+        
+        /// polarisation  vector setter
+        void setPolarVector(const std::vector<std::complex<double>>& pvec)
+        {
+            mPolarVec = pvec;
+        }
+        
+    private:
         
         /// For the given source and field element with an edge
         /// singularity, evaluate the emag kernel and assemble
@@ -306,10 +319,10 @@ namespace fastibem {
         const nurbs::UIntVec& defaultSubcellN() const { return mDefaultSubcellN; }
         
         /// The wavevector
-        const nurbs::Point3D mWaveVec;
+        nurbs::Point3D mWaveVec;
         
         /// The polarisation vector
-        const std::vector<std::complex<double>> mPolarVec;
+        std::vector<std::complex<double>> mPolarVec;
         
         /// Mu material parameter
         const double mMu;
@@ -318,7 +331,7 @@ namespace fastibem {
         const double mOmega;
         
         /// The wavenumber (i.e. k)
-        const double mWavenumber;
+        double mWavenumber;
         
         /// Default number of subcells used for polar integration
         const nurbs::UIntVec mDefaultSubcellN;
