@@ -1,4 +1,6 @@
 #include <iostream>
+#include <string>
+
 #include "HAssembly.h"
 #include "Functor.h"
 #include "Kernel.h"
@@ -9,6 +11,10 @@
 #include "OutputVTK.h"
 #include "hlib.hh"
 #include "NURBSCache.h"
+
+#include <boost/filesystem.hpp>
+
+using namespace boost::filesystem;
 
 using namespace nurbs;
 
@@ -68,7 +74,7 @@ int main(int argc, char* argv[])
     
     const Point3D kvec(k, 0.0, 0.0);
     const std::vector<std::complex<double>> pvec{   std::complex<double>(0.0, 0.0),
-                                                    std::complex<double>(0.0, -1.0),
+                                                    std::complex<double>(0.0, 0.0),
                                                     std::complex<double>(0.0, 0.0)};
     
     // Create class for assembling Hmatrix and force vector
@@ -78,19 +84,37 @@ int main(int argc, char* argv[])
                                       mu,
                                       omega);
     
-    auto A = hassembly.assembleHmatrix();
+    std::unique_ptr<HLIB::TMatrix> A;
+    
+    // attempt to read matrix
+    std::string filename(argv[1]);
+    size_t lastindex = filename.find_last_of(".");
+    std::string rawname = filename.substr(0, lastindex);
+    rawname = rawname + "_h" + std::to_string(refine) + "_k" + std::to_string(k) + "_dof" + std::to_string(multiforest.globalDofN());
+
+    HLIB::THLibMatrixIO io;
+    
+    if(exists(rawname))
+        A = io.read(rawname);
+    else
+    {
+        A = hassembly.assembleHmatrix();
+        io.write(A.get(), rawname);
+    }
     
     // Open file for writing RCS data
-    std::string filename("rcs.dat");
-    std::ofstream ofs( filename.c_str() );
+    std::string rcsfilename("rcs.dat");
+    std::ofstream ofs( rcsfilename.c_str() );
     if( !ofs )
         error( "Error opening file" );
     ofs.precision( 18 );
     std::cout.precision( 18 );
     
-    const int nseg = 29;                            // number of points for sampling RCS
+    const int nseg = 500;                            // number of points for sampling RCS
+    const int noutput = 10;
+    
     const double delta = nurbs::PI / nseg;          // theta increment
-    const double rfar = 1.0e3;             // distance of far-field points from origin
+    const double rfar = 1.0e3;                      // distance of far-field points from origin
     
     // loop over RCS points
     for (uint isample = 0; isample < nseg+1; ++isample)
@@ -107,15 +131,20 @@ int main(int argc, char* argv[])
                         0.0);                       // wave vector
         Point3D rhat(-cos(theta),
                      -sin(theta),
-                     0.0);                          // unit vector that defines direction of sample point from origin
+                     0.0);                          // unit vector that defines direction of the plane wave
         
         hassembly.setWaveVector(newkvec);
         
+        const std::vector<std::complex<double>> polarvec
+        {
+            -sin(theta)* std::complex<double>(1.0, 0.0),
+            cos(theta) * std::complex<double>(1.0, 0.0),
+                         std::complex<double>(0.0, 0.0)
+        };
+
         // is this necessary
-        hassembly.setPolarVector({-sin(theta)* std::complex<double>(0.0, -1.0),
-                                cos(theta) * std::complex<double>(0.0, -1.0),
-                                std::complex<double>(0.0, 0.0)});
-        
+        hassembly.setPolarVector(polarvec);
+            
         // Force vector
         auto f = A->row_vector();
         hassembly.assembleForceVector(f.get());
@@ -132,7 +161,6 @@ int main(int argc, char* argv[])
         auto  A_inv = HLIB::factorise_inv( B.get(), hassembly.trunAccInstance(), & progress );
         
         // GMRES solve
-        std::cout << std::endl << "━━ solving system" << std::endl;
         HLIB::TAutoSolver     solver( 1000 );
         HLIB::TSolver::TInfo  solve_info( false, HLIB::verbose( 2 ) );
         
@@ -142,16 +170,11 @@ int main(int argc, char* argv[])
         solver.solve( A.get(), x.get(), f.get(), A_inv.get(), &solve_info );
         
         if ( solve_info.converged() ) {
-            std::cout << "  converged in " << timer << " and "
-            << solve_info.n_iter() << " steps with rate " << solve_info.conv_rate()
-            << ", |r| = " << solve_info.res_norm() << std::endl;
             
             hassembly.clusterTree()->perm_i2e()->permute( x.get() );
             
             // create output vector and set to VTK file
             std::vector<std::complex<double>> solnvec;
-            
-            std::cout << "solution\n\n";
             for(size_t i = 0; i < x->size(); ++i)
             {
                 const auto entry = x->centry(i);
@@ -159,8 +182,10 @@ int main(int argc, char* argv[])
             }
             
             // Output solution
-            nurbs::OutputVTK output("emagtest" + std::to_string(isample));
-            output.outputComplexVectorField(multiforest, "surface_current", solnvec);
+            nurbs::OutputVTK output("emagtest_VV_" + std::to_string(isample));
+            
+            if(isample % (nseg / noutput) == 0)
+                output.outputComplexVectorField(multiforest, "surface_current", solnvec);
             
             // Write rcs data
             const double raw_rcs = output.computeRCS(multiforest, sample_pt, k, rhat, mu, omega, solnvec);
