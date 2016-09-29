@@ -43,7 +43,7 @@ int main(int argc, char* argv[])
         error("Failed to load geometry from hbs data");
     
     //g.normalise();
-//        g.rescale(2.0/34.4);
+//        g.rescale(2.0/60.0);
     
     // Construct the necessary forests
     HDivForest multiforest(g);
@@ -164,48 +164,6 @@ int main(int argc, char* argv[])
     else
         std::cout << "  not converged in " << timer << " and "
         << solve_info.n_iter() << " steps " << std::endl;
-
-//    std::vector<uint> rows(ndof);
-//    std::vector<uint> cols(ndof);
-//    std::iota(rows.begin(), rows.end(), 0);
-//    std::iota(cols.begin(), cols.end(), 0);
-//    
-//    auto Ktemp = hassembly.evalSubmatrix(rows , cols);
-//    hassembly.clusterTree()->perm_i2e()->permute( TempF.get() );
-//    
-//    Epetra_SerialDenseMatrix K(ndof * 2, ndof * 2 );
-//    /// Initialise B matrix containing shape function products
-//    Epetra_SerialDenseVector u(ndof * 2);
-//    // initialize the solution vector
-//    Epetra_SerialDenseVector force(ndof * 2 );
-//    
-//    for(size_t i = 0; i < ndof; ++i)
-//    {
-//        const auto fval = TempF->centry(i);
-//        force(i) = fval.im();
-//        force(i+ndof) = -fval.re();
-//        
-//        for(size_t j = 0; j < ndof; ++j)
-//        {
-//            const auto aval = Ktemp[i][j];
-//            K(i,j) = aval.real();
-//            K(i,j + ndof) = -aval.imag();
-//            K(i+ndof,j) = aval.imag();
-//            K(i+ndof,j+ndof) = aval.real();
-//        }
-//    }
-//    
-//    Epetra_SerialDenseSolver t_solver;
-//    t_solver.SetMatrix( K );
-//    t_solver.SetVectors(u, force);
-//    t_solver.Solve();
-//    
-//    std::cout << "Trilinos solution\n\n";
-//    for(uint i = 0; i < ndof; ++i)
-//        std::cout << u[i] << ", " << u[i+ndof] << "\n";
-    
-    
-    
     
     return EXIT_SUCCESS;
 }

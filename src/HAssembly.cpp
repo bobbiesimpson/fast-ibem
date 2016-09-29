@@ -331,7 +331,7 @@ namespace fastibem {
                     const auto& fconn = p_fel->signedGlobalBasisFuncI();
                     
                     const nurbs::UIntVec forder{2,2};
-                    //const auto& forder = p_fel->equalIntegrationOrder();
+//                    const auto& forder = p_fel->equalIntegrationOrder();
                     
                     // Determine set of require basis func indices
                     nurbs::IntVec fset;
