@@ -53,7 +53,7 @@ endif()
 #ENDIF()
 
 # add Eigen library include fileds
-include_directories(SYSTEM ${fast-ibem-SOURCE_DIR}/libs})
+include_directories(SYSTEM ${fast-ibem_SOURCE_DIR}/libs)
 
 # Add conforming nurbs submodule
 ADD_SUBDIRECTORY(${fast-ibem_SOURCE_DIR}/libs/conformingNurbs)

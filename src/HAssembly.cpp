@@ -331,7 +331,11 @@ namespace fastibem {
                     const auto& fconn = p_fel->signedGlobalBasisFuncI();
                     
                     const nurbs::UIntVec forder{2,2};
-//                    const auto& forder = p_fel->equalIntegrationOrder();
+//                    nurbs::UIntVec forder;
+//                    if(p_fel->degenerate())
+//                        forder = p_fel->equalIntegrationOrder();
+//                    else
+//                        forder = {2,2};
                     
                     // Determine set of require basis func indices
                     nurbs::IntVec fset;
@@ -350,6 +354,9 @@ namespace fastibem {
                         nsubcells = std::ceil(h * minDistRatio / d) + 1;
 //                        std::cout << "C = " << C << " num cubcells = " << nsubcells << "\n";
                     }
+                    
+//                    if(p_fel->degenerate())
+//                        nsubcells *= 2;
                     
                     // integrate over field elements
                     for(nurbs::ISubElemIntegrate igpt_f(forder, {nsubcells, nsubcells}); !igpt_f.isDone(); ++igpt_f)
@@ -524,7 +531,12 @@ namespace fastibem {
         // field element and connectivity
         const auto p_fel = forest().bezierElement(ifieldel);
         const auto& fconn = p_fel->signedGlobalBasisFuncI();
-        const auto& forder = p_fel->equalIntegrationOrder();
+        
+        uint offset = 0;
+        if(p_fel->degenerate())
+            offset += 2;
+        
+        const auto& forder = p_fel->equalIntegrationOrder(offset);
         
         // and finally loop over all regular integrals
         for(nurbs::IElemIntegrate igpt_s(sorder); !igpt_s.isDone(); ++igpt_s)
@@ -714,7 +726,11 @@ namespace fastibem {
 //        const auto& conn = p_el->globalBasisFuncI();
         const auto& conn = p_el->signedGlobalBasisFuncI();
         
-        const auto& forder = p_el->equalIntegrationOrder();
+        uint offset = 0;
+//        if(p_el->degenerate())
+//            offset += 2;
+        const auto& forder = p_el->equalIntegrationOrder(offset);
+        
 		// const nurbs::UIntVec forder{5,5};
 		// const nurbs::UIntVec sorder{5,5};
 		const auto& sorder = p_el->equalIntegrationOrder();
