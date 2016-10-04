@@ -111,10 +111,17 @@ int main(int argc, char* argv[])
     std::cout.precision( 18 );
     
     const int nseg = 500;                            // number of points for sampling RCS
-    const int noutput = 10;
+    const int noutput = 5;
     
     const double delta = nurbs::PI / nseg;          // theta increment
     const double rfar = 1.0e3;                      // distance of far-field points from origin
+    
+//    const double start = nurbs::PI * 2.0/3.0;
+//    const double end = nurbs::PI;
+//    const double inc = (end - start)/nseg;
+//    std::vector<double> tvals;
+//    for(size_t i = 0; i < nseg; ++i)
+//        tvals.push_back(start + i * inc);
     
     // loop over RCS points
     for (uint isample = 0; isample < nseg+1; ++isample)
@@ -122,6 +129,8 @@ int main(int argc, char* argv[])
         std::cout << "Computing RCS sample point " << isample + 1 << " / " << nseg + 1 << "....\n";
         
         const double theta = isample * delta;       // current theta
+
+//        const double theta = tvals[isample];
         
         Point3D sample_pt(-rfar * cos(theta),
                           -rfar * sin(theta),
@@ -182,7 +191,7 @@ int main(int argc, char* argv[])
             }
             
             // Output solution
-            nurbs::OutputVTK output("emagtest_VV_" + std::to_string(isample));
+            nurbs::OutputVTK output("emagtest_HH_" + std::to_string(isample));
             
             if(isample % (nseg / noutput) == 0)
                 output.outputComplexVectorField(multiforest, "surface_current", solnvec);

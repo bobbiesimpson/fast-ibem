@@ -386,7 +386,7 @@ namespace fastibem {
             using HLIB::TPermCoeffFn<HLIB::complex>::eval;
             
             /// Collocation BE matrix is non-symmetric
-            virtual HLIB::matform_t matrix_format() const override { return HLIB::MATFORM_NONSYM; }
+            virtual HLIB::matform_t matrix_format() const override { return HLIB::MATFORM_SYM; }
             
             virtual bool is_complex() const override { return true; }
             
