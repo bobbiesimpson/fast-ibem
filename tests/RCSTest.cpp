@@ -68,8 +68,8 @@ int main(int argc, char* argv[])
     // Some hardcoded input parameters
     const double k = std::atof(argv[2]);
     
-    const double mu = 1.257e-6;
-    const double epsilon = 8.854e-12;
+    const double mu = 1.25663706e-6;
+    const double epsilon = 8.85418782e-12;
     const double omega = k / std::sqrt(mu * epsilon);
     
     const Point3D kvec(k, 0.0, 0.0);
@@ -92,14 +92,16 @@ int main(int argc, char* argv[])
     std::string rawname = filename.substr(0, lastindex);
     rawname = rawname + "_h" + std::to_string(refine) + "_k" + std::to_string(k) + "_dof" + std::to_string(multiforest.globalDofN());
 
-    HLIB::THLibMatrixIO io;
-    
-    if(exists(rawname))
-        A = io.read(rawname);
-    else
     {
-        A = hassembly.assembleHmatrix();
-        io.write(A.get(), rawname);
+        HLIB::THLibMatrixIO io;
+        
+        if(exists(rawname))
+            A = io.read(rawname);
+        else
+        {
+            A = hassembly.assembleHmatrix();
+            io.write(A.get(), rawname);
+        }
     }
     
     // Open file for writing RCS data
