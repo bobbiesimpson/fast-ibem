@@ -59,7 +59,8 @@ int main(int argc, char* argv[])
         }
     }
     
-    multiforest.hrefine(refine);
+//    multiforest.hrefine(refine);
+    multiforest.graded_hrefine(refine, 0.5 );
     
     std::cout << "Performing emag scattering analysis on multiforest with "
     << multiforest.elemN() << " elements, "
@@ -148,9 +149,9 @@ int main(int argc, char* argv[])
         
         const std::vector<std::complex<double>> polarvec
         {
-            -sin(theta)* std::complex<double>(1.0, 0.0),
-            cos(theta) * std::complex<double>(1.0, 0.0),
-                         std::complex<double>(0.0, 0.0)
+            -sin(theta)* std::complex<double>(0.0, 0.0),
+            cos(theta) * std::complex<double>(0.0, 0.0),
+                         std::complex<double>(1.0, 0.0)
         };
 
         // is this necessary
