@@ -741,7 +741,6 @@ namespace fastibem {
             offset += 2;
         const auto& forder = p_el->equalIntegrationOrder(offset);
 		const auto& sorder = p_el->equalIntegrationOrder(offset);
-        
         const auto& nsubcells = defaultSubcellN();
         
         // and finally loop over all regular integrals
