@@ -112,7 +112,7 @@ int main(int argc, char* argv[])
     ofs.precision( 18 );
     std::cout.precision( 18 );
     
-    const int nseg = 500;                            // number of points for sampling RCS
+    const int nseg = 100;                            // number of points for sampling RCS
     const int noutput = 5;
     
     const double delta = nurbs::PI / nseg;          // theta increment
@@ -148,9 +148,9 @@ int main(int argc, char* argv[])
         
         const std::vector<std::complex<double>> polarvec
         {
-            -sin(theta)* std::complex<double>(1.0, 0.0),
-            cos(theta) * std::complex<double>(1.0, 0.0),
-                         std::complex<double>(0.0, 0.0)
+            -sin(theta)* std::complex<double>(0.0, 0.0),
+            cos(theta) * std::complex<double>(0.0, 0.0),
+                         std::complex<double>(1.0, 0.0)
         };
 
         // is this necessary
