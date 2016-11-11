@@ -113,7 +113,7 @@ int main(int argc, char* argv[])
     ofs.precision( 18 );
     std::cout.precision( 18 );
     
-    const int nseg = 100;                            // number of points for sampling RCS
+    const int nseg = 200;                            // number of points for sampling RCS
     const int noutput = 5;
     
     const double delta = nurbs::PI / nseg;          // theta increment
@@ -194,7 +194,7 @@ int main(int argc, char* argv[])
             }
             
             // Output solution
-            nurbs::OutputVTK output("emagtest_HH_" + std::to_string(isample));
+            nurbs::OutputVTK output("emagtest_VV_" + std::to_string(isample));
             
             if(isample % (nseg / noutput) == 0)
                 output.outputComplexVectorField(multiforest, "surface_current", solnvec);
