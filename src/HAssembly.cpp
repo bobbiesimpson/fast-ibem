@@ -250,6 +250,8 @@ namespace fastibem {
         std::map<std::pair<unsigned, unsigned>, nurbs::Point3D> spoint_map;
         std::map<unsigned, nurbs::IntVec> sconn_map;
         
+        const uint offset = 2;
+        
         for(const auto& isel : isrc_els)
         {
             const auto p_sel = forest().bezierElement(isel);
@@ -300,7 +302,7 @@ namespace fastibem {
             }
         }
         
-        const double minDistRatio = 1.0; // the minimum d / h ratio for adaptive quadrature
+        const double minDistRatio = 2.0; // the minimum d / h ratio for adaptive quadrature
         
         // now perform quadrature and assembly of regular elements
         //        for(const auto& isel : isrc_els)
@@ -451,11 +453,11 @@ namespace fastibem {
                     const auto p_fel = forest().bezierElement(igfieldel);
                     const auto& fconn = p_fel->signedGlobalBasisFuncI();
                     
-                    //                    nurbs::UIntVec forder;//{2,2};
-                    //                    if(nurbs::dist(x, p_fel->eval(0.0, 0.0)) > p_fel->size() * 2.0)
-                    //                        forder = nurbs::UIntVec{2,2};
-                    //                    else
-                    const auto forder = p_fel->equalIntegrationOrder();
+                    nurbs::UIntVec forder;//{2,2};
+                    if(nurbs::dist(x, p_fel->eval(0.0, 0.0)) > p_fel->size() * minDistRatio)
+                        forder = nurbs::UIntVec{2,2};
+                    else
+                        forder = p_fel->equalIntegrationOrder(offset);
                     
                     // integrate over field elements
                     for(nurbs::IElemIntegrate igpt_f(forder); !igpt_f.isDone(); ++igpt_f)
@@ -746,7 +748,8 @@ namespace fastibem {
         
         // new triangular Galerkin quadrature scheme
         
-        if (p_el ->degenerate()) {
+        if (p_el ->degenerate())
+        {
             nurbs::Edge dedge = p_el->degenerateEdge().second;
             
             for(nurbs::IEqualQuadratureTri igpt(sorder, forder, dedge); !igpt.isDone(); ++igpt)

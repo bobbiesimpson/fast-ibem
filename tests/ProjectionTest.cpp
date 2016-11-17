@@ -187,8 +187,8 @@ int main(int argc, char* argv[]) {
         
         for(size_t i = 0; i < ndof; ++i)
         {
-            std::complex<double> centry(xreal(i), ximag(i));
-//            std::complex<double> centry = (0==i) ? std::complex<double>(1.0, 1.0) : std::complex<double>(0.0, 0.0);
+//            std::complex<double> centry(xreal(i), ximag(i));
+            std::complex<double> centry = (0==i) ? std::complex<double>(1.0, 1.0) : std::complex<double>(0.0, 0.0);
 //            std::cout << centry << "\n";
             solnvec.push_back(centry);
             real_solnvec.push_back(xreal(i));
