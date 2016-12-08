@@ -80,12 +80,12 @@ int main(int argc, char* argv[])
     const std::vector<std::complex<double>> pvec{0.0, std::complex<double>(0.0, -1.0), 0.0};
     const Point3D kvec(k, 0.0, 0.0);
     
-//    const double omega = k;
-//    const double mu = 1.0;
-//
-    const double mu = 1.257e-6;
-    const double epsilon = 8.854e-12;
-    const double omega = k / std::sqrt(mu * epsilon);
+    const double omega = k;
+    const double mu = 1.0;
+
+//    const double mu = 1.257e-6;
+//    const double epsilon = 8.854e-12;
+//    const double omega = k / std::sqrt(mu * epsilon);
     
 //    const Point3D kvec(k, 0.0, 0.0);
 //    const Point3D pvec(0.0, 1.0, 0.0);
