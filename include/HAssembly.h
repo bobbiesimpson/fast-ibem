@@ -279,15 +279,32 @@ namespace fastibem {
                                  const std::map<int, int>& g2localf,
                                  MatrixType& mat) const;
         
+//        void evalEdgeSingularityPolar(const unsigned isrcel,
+//                                      const unsigned ifieldel,
+//                                      const nurbs::Edge e1,
+//                                      const nurbs::Edge e2,
+//                                      const std::map<int, int>& g2locals,
+//                                      const std::map<int, int>& g2localf,
+//                                      MatrixType& mat) const;
+        
         /// For the given source and field element with an vertex
         /// singularity, evaluate the emag kernel and assemble
         /// terms into the given matrix
         void evalVertexSingularity(const unsigned isrcel,
                                    const unsigned ifieldel,
+//                                   const nurbs::Vertex v1,
                                    const nurbs::Vertex v2,
                                    const std::map<int, int>& g2locals,
                                    const std::map<int, int>& g2localf,
                                    MatrixType& mat) const;
+        
+//        void evalVertexSingularityPolar(const unsigned isrcel,
+//                                        const unsigned ifieldel,
+//                                        const nurbs::Vertex v1,
+//                                        const nurbs::Vertex v2,
+//                                        const std::map<int, int>& g2locals,
+//                                        const std::map<int, int>& g2localf,
+//                                        MatrixType& mat) const;
         
         /// For the given source and field element which are
         /// coincident, evaluate the emag kernel and assemble
@@ -296,6 +313,11 @@ namespace fastibem {
                                        const std::map<int, int>& g2locals,
                                        const std::map<int, int>& g2localf,
                                        MatrixType& mat) const;
+        
+//        void evalCoincidentSingularityPolar(const unsigned iel,
+//                                            const std::map<int, int>& g2locals,
+//                                            const std::map<int, int>& g2localf,
+//                                            MatrixType& mat) const;
         
         /// The wavevector accessor
         const nurbs::Point3D& wavevector() const { return mWaveVec; }
