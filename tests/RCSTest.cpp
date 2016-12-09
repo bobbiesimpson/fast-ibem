@@ -97,13 +97,18 @@ int main(int argc, char* argv[])
         HLIB::THLibMatrixIO io;
         
         if(exists(rawname))
+        {
+            std::cout << "Trying to read existing Hmatrix file: " << rawname << "....\n";
             A = io.read(rawname);
+        }
         else
         {
             A = hassembly.assembleHmatrix();
             io.write(A.get(), rawname);
         }
     }
+    
+    std::cout << "now computing RCS data...\n";
     
     // Open file for writing RCS data
     std::string rcsfilename("rcs.dat");
@@ -149,9 +154,9 @@ int main(int argc, char* argv[])
         
         const std::vector<std::complex<double>> polarvec
         {
-            -sin(theta)* std::complex<double>(0.0, 0.0),
-            cos(theta) * std::complex<double>(0.0, 0.0),
-                         std::complex<double>(1.0, 0.0)
+            -sin(theta)* std::complex<double>(1.0, 0.0),
+            cos(theta) * std::complex<double>(1.0, 0.0),
+                         std::complex<double>(0.0, 0.0)
         };
 
         // is this necessary

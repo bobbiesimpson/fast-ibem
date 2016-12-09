@@ -319,6 +319,17 @@ namespace fastibem {
                                             const std::map<int, int>& g2localf,
                                             MatrixType& mat) const;
         
+        /// for a given quadrature order and vector of elements, determine sets of
+        /// cached terms for basis functions, jacobian determinant etc at gauss points.
+        void computeElCache(const nurbs::UIntVec& qorder,
+                            const std::vector<unsigned>& els,
+                            const std::map<int, int>& g2local,
+                            std::map<std::pair<unsigned, unsigned>, nurbs::DoubleVecVec>& basis,
+                            std::map<std::pair<unsigned, unsigned>, double>& jdet,
+                            std::map<std::pair<unsigned, unsigned>, nurbs::DoubleVec>& div,
+                            std::map<std::pair<unsigned, unsigned>, nurbs::Point3D>& pts,
+                            std::map<unsigned, nurbs::IntVec>& conn) const;
+        
         /// The wavevector accessor
         const nurbs::Point3D& wavevector() const { return mWaveVec; }
         
