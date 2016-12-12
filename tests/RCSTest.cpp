@@ -92,7 +92,6 @@ int main(int argc, char* argv[])
     size_t lastindex = filename.find_last_of(".");
     std::string rawname = filename.substr(0, lastindex);
     rawname = rawname + "_h" + std::to_string(refine) + "_k" + std::to_string(k) + "_dof" + std::to_string(multiforest.globalDofN());
-
     {
         HLIB::THLibMatrixIO io;
         
@@ -154,9 +153,9 @@ int main(int argc, char* argv[])
         
         const std::vector<std::complex<double>> polarvec
         {
-            -sin(theta)* std::complex<double>(1.0, 0.0),
-            cos(theta) * std::complex<double>(1.0, 0.0),
-                         std::complex<double>(0.0, 0.0)
+            -sin(theta)* std::complex<double>(0.0, 0.0),
+            cos(theta) * std::complex<double>(0.0, 0.0),
+                         std::complex<double>(1.0, 0.0)
         };
 
         // is this necessary
