@@ -39,10 +39,10 @@ int main(int argc, char* argv[]) {
             error("Failed to load geometry from hbs data");
         
 //        g.rescale(2.0/64.0);
-        EmagPlaneWave pw_functor(Point3D(5.0, 0.0, 0.0),
-                                 {0.0, 1.0, 0.0});
+        EmagPlaneWave pw_functor(Point3D(146.70915, 0.0, 0.0),
+                                 {0.0, 0.0, 1.0});
         
-        SinusoidalFunctor s_functor;
+        //SinusoidalFunctor s_functor;
         
         Forest forest(g);
         HDivForest divforest(g);
@@ -187,8 +187,8 @@ int main(int argc, char* argv[]) {
         
         for(size_t i = 0; i < ndof; ++i)
         {
-//            std::complex<double> centry(xreal(i), ximag(i));
-            std::complex<double> centry = (87==i) ? std::complex<double>(1.0, 0.0) : std::complex<double>(0.0, 0.0);
+            std::complex<double> centry(xreal(i), ximag(i));
+//            std::complex<double> centry = (87==i) ? std::complex<double>(1.0, 0.0) : std::complex<double>(0.0, 0.0);
 //            std::cout << centry << "\n";
             solnvec.push_back(centry);
             real_solnvec.push_back(xreal(i));

@@ -268,6 +268,12 @@ namespace fastibem {
         
     private:
         
+        void evalVertexDegenerateSingularity(const unsigned isrcel,
+                                             const unsigned ifieldel,
+                                             const std::map<int, int>& g2locals,
+                                             const std::map<int, int>& g2localf,
+                                             MatrixType& mat) const;
+        
         /// For the given source and field element with an edge
         /// singularity, evaluate the emag kernel and assemble
         /// terms into the given matrix
@@ -318,6 +324,8 @@ namespace fastibem {
                                             const std::map<int, int>& g2locals,
                                             const std::map<int, int>& g2localf,
                                             MatrixType& mat) const;
+        
+        
         
         /// for a given quadrature order and vector of elements, determine sets of
         /// cached terms for basis functions, jacobian determinant etc at gauss points.
