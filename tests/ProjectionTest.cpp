@@ -68,7 +68,7 @@ int main(int argc, char* argv[]) {
         
         // assembly
         const unsigned ndof = divforest.globalDofN();
-        std::cout << "performing projection test with " << ndof << " degrees of freedom\n";
+        std::cout << "performing projection test with " << ndof << " degrees of freedom and " << divforest.elemN() << " elements\n";
         
         Eigen::VectorXd freal(ndof);
         Eigen::VectorXd fimag(ndof);
@@ -87,6 +87,7 @@ int main(int argc, char* argv[]) {
         {
 //            std::cout << "Element: " << ielem << "\n";
             const auto el = divforest.bezierElement(ielem);
+            
             const auto& conn = el->signedGlobalBasisFuncI();
 //            std::cout << conn << "\n";
             

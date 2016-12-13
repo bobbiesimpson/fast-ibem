@@ -211,8 +211,8 @@ namespace fastibem {
                 else if(nurbs::edgeConnected(*p_srcel, *p_fieldel, e1, e2))
                     edge_integrals.push_back(std::make_tuple(igsrcel, igfieldel, e1, e2));
                 
-                else if(nurbs::connectedAtDegeneratePt(*p_srcel, *p_fieldel))
-                    degen_vertex_integrals.push_back(std::make_tuple(igsrcel, igfieldel));
+                /*else if(nurbs::connectedAtDegeneratePt(*p_srcel, *p_fieldel))
+                    degen_vertex_integrals.push_back(std::make_tuple(igsrcel, igfieldel));*/
 
                 // vertex singularity
                 /*else if(nurbs::vertexConnected(*p_srcel, *p_fieldel, v1, v2))
