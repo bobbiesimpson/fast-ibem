@@ -182,6 +182,7 @@ namespace fastibem {
         // and vertex adjacent integrals along with the required edges/vertices.
         std::vector<std::tuple<unsigned, unsigned, nurbs::Vertex, nurbs::Vertex>> vertex_integrals;
         std::vector<std::tuple<unsigned, unsigned, nurbs::Edge, nurbs::Edge>> edge_integrals;
+        std::vector<std::tuple<unsigned, unsigned, nurbs::Edge, nurbs::Edge>> degen_edge_integrals;
         std::vector<unsigned> coincident_integrals;
         std::vector<std::tuple<unsigned, unsigned>> degen_vertex_integrals;
         
@@ -209,14 +210,23 @@ namespace fastibem {
                 
                 // edge singularity
                 else if(nurbs::edgeConnected(*p_srcel, *p_fieldel, e1, e2))
-                    edge_integrals.push_back(std::make_tuple(igsrcel, igfieldel, e1, e2));
-                
+                {
+                    // seperate degenerate and non-degenerate cases
+                    /*if(p_srcel->degenerate() && p_fieldel->degenerate())
+                        degen_edge_integrals.push_back(std::make_tuple(igsrcel, igfieldel, e1, e2));
+                    else*/
+                        edge_integrals.push_back(std::make_tuple(igsrcel, igfieldel, e1, e2));
+                }
                 /*else if(nurbs::connectedAtDegeneratePt(*p_srcel, *p_fieldel))
                     degen_vertex_integrals.push_back(std::make_tuple(igsrcel, igfieldel));*/
 
                 // vertex singularity
                 /*else if(nurbs::vertexConnected(*p_srcel, *p_fieldel, v1, v2))
                     vertex_integrals.push_back(std::make_tuple(igsrcel, igfieldel, v1, v2));*/
+                
+                // increase quadrature for all degenerate, non-singular elements
+                else if(p_fieldel->degenerate())
+                    nearsingular_elmap[igsrcel].push_back(igfieldel);
                 
                 // nearly singular integral
                 else if(nurbs::dist(p_srcel->eval(0.0, 0.0), p_fieldel->eval(0.0, 0.0)) < p_fieldel->size() * minDistRatio)
@@ -237,6 +247,15 @@ namespace fastibem {
                                 g2local_src,
                                 g2local_field,
                                 matrix);
+        
+        for(const auto& tuple : degen_edge_integrals)
+            evalEdgeSingularityPolar(std::get<0>(tuple),
+                                     std::get<1>(tuple),
+                                     std::get<2>(tuple),
+                                     std::get<3>(tuple),
+                                     g2local_src,
+                                     g2local_field,
+                                     matrix);
         
         // evaluate vertex elements
         for(const auto& tuple : vertex_integrals)
@@ -599,159 +618,73 @@ namespace fastibem {
         
         const auto& k = wavenumber();
         
-        // Apply degenerate polar quadrature
-        if(false/*p_fel->degenerate() && p_sel->degenerate()*/)
+        for(nurbs::IEdgeQuadrature igpt(sorder, forder, e1, e2); !igpt.isDone(); ++igpt)
         {
-//            std::for_each(sorder.begin(), sorder.end(), [](uint& v){ v *= 2; });
-//            std::for_each(forder.begin(), forder.end(), [](uint& v){ v *= 2; });
+            const auto gpt4d = igpt.get();
+            const auto sparent = gpt4d.srcPt();
+            const auto fparent = gpt4d.fieldPt();
             
-            const auto degenerate_edgepair = p_fel->degenerateEdge();
+            const auto w = igpt.getWeight();
             
-            for(nurbs::IElemIntegrate igpt_s(sorder); !igpt_s.isDone(); ++igpt_s)
+            // source element parameters
+            const auto& t1_s = p_sel->tangent(sparent.s, sparent.t, nurbs::ParamDir::S);
+            const auto& t2_s = p_sel->tangent(sparent.s, sparent.t, nurbs::ParamDir::T);
+            const auto& x = p_sel->eval(sparent);
+            const auto& basis_s = p_sel->basis(sparent.s, sparent.t, t1_s, t2_s);
+            const auto& ds_s = p_sel->localBasisDers(sparent.s, sparent.t, nurbs::DerivType::DS);
+            const auto& dt_s = p_sel->localBasisDers(sparent.s, sparent.t, nurbs::DerivType::DT);
+            const auto& jdet_s = p_sel->jacDet(sparent, t1_s, t2_s);
+            const auto& jpiola_s = nurbs::cross(t1_s, t2_s).length();
+            
+            // field point terms
+            const auto& t1_f = p_fel->tangent(fparent.s, fparent.t, nurbs::ParamDir::S);
+            const auto& t2_f = p_fel->tangent(fparent.s, fparent.t, nurbs::ParamDir::T);
+            const auto y = p_fel->eval(fparent);
+            const auto& basis_f = p_fel->basis(fparent.s, fparent.t, t1_f, t2_f);
+            const auto& ds_f = p_fel->localBasisDers(fparent.s, fparent.t, nurbs::DerivType::DS);
+            const auto& dt_f = p_fel->localBasisDers(fparent.s, fparent.t, nurbs::DerivType::DT);
+            const double jdet_f = p_fel->jacDet(fparent, t1_f, t2_f);
+            const double jpiola_f = nurbs::cross(t1_f, t2_f).length();
+            
+            // kernel
+            const double r = dist(x, y);
+            const auto ekernel = std::exp(std::complex<double>(0.0, -k * r)) / (4.0 * nurbs::PI * r);
+            
+            // now loop over test and trial functions
+            for(size_t itest = 0; itest < sconn.size(); ++itest)
             {
-                const auto sparent = igpt_s.get();
-                const auto sw = igpt_s.getWeight();
+                const auto igbasis_s = sconn[itest];
+                if(igbasis_s == -1)
+                    continue;
                 
-                // cached tangent entries
-                const auto& t1 = p_sel->tangent(sparent.s, sparent.t, nurbs::ParamDir::S);
-                const auto& t2 = p_sel->tangent(sparent.s, sparent.t, nurbs::ParamDir::T);
+                const auto ilocal_s = g2locals.at(igbasis_s);
+                if(ilocal_s == -1)
+                    continue;
                 
-                // source element parameters
-                const auto x = p_sel->eval(sparent);
-                const auto& basis_s = p_sel->basis(sparent.s, sparent.t, t1, t2);
-                const auto& ds_s = p_sel->localBasisDers(sparent.s, sparent.t, nurbs::DerivType::DS);
-                const auto& dt_s = p_sel->localBasisDers(sparent.s, sparent.t, nurbs::DerivType::DT);
-                const double jdet_s = p_sel->jacDet(sparent, t1, t2);
-                const double jpiola_s = nurbs::cross(t1, t2).length();
+                // divergence (source)
+                const double div_s = 1./jpiola_s * (ds_s[itest][0] + dt_s[itest][1]);
                 
-                // integrate over field elements
-                for(nurbs::IPolarDegenerate igpt_f(nurbs::projectPt(sparent, e1, e2), degenerate_edgepair.second, forder); !igpt_f.isDone(); ++igpt_f)
+                for(size_t itrial = 0; itrial < fconn.size(); ++itrial)
                 {
-                    const auto fparent = igpt_f.get();
-                    const auto fw = igpt_f.getWeight();
+                    const auto igbasis_f = fconn[itrial];
+                    if(igbasis_f == -1)
+                        continue;
                     
-                    // cached tangent entries
-                    const auto& t1 = p_fel->tangent(fparent.s, fparent.t, nurbs::ParamDir::S);
-                    const auto& t2 = p_fel->tangent(fparent.s, fparent.t, nurbs::ParamDir::T);
+                    const auto ilocal_f = g2localf.at(igbasis_f);
+                    if(ilocal_f == -1)
+                        continue;
                     
-                    // field element parameters
-                    const auto y = p_fel->eval(fparent);
-                    const auto& basis_f = p_fel->basis(fparent.s, fparent.t, t1, t2);
-                    const auto& ds_f = p_fel->localBasisDers(fparent.s, fparent.t, nurbs::DerivType::DS);
-                    const auto& dt_f = p_fel->localBasisDers(fparent.s, fparent.t, nurbs::DerivType::DT);
-                    const double jdet_f = p_fel->jacDet(fparent, t1, t2);
-                    const double jpiola_f = nurbs::cross(t1, t2).length();
+                    // divergence (field)
+                    const double div_f = 1./jpiola_f * (ds_f[itrial][0] + dt_f[itrial][1]);
                     
-                    // kernel
-                    const double r = dist(x, y);
-                    const auto ekernel = std::exp(std::complex<double>(0.0, -k * r)) / (4.0 * nurbs::PI * r);
+                    for(unsigned i = 0; i < 3; ++i)
+                        mat[ilocal_s][ilocal_f] += ekernel * basis_s[itest][i] * basis_f[itrial][i] * jdet_s * jdet_f * w;
+                    mat[ilocal_s][ilocal_f] -= 1.0 / (k * k) * div_s * div_f * ekernel * jdet_s * jdet_f * w;
                     
-                    // now loop over test and trial functions
-                    for(size_t itest = 0; itest < sconn.size(); ++itest)
-                    {
-                        const auto igbasis_s = sconn[itest];
-                        if(igbasis_s == -1)
-                            continue;
-                        
-                        const auto ilocal_s = g2locals.at(igbasis_s);
-                        if(ilocal_s == -1)
-                            continue;
-                        
-                        // divergence (source)
-                        const double div_s = 1./jpiola_s * (ds_s[itest][0] + dt_s[itest][1]);
-                        
-                        for(size_t itrial = 0; itrial < fconn.size(); ++itrial)
-                        {
-                            const auto igbasis_f = fconn[itrial];
-                            if(igbasis_f == -1)
-                                continue;
-                            
-                            const auto ilocal_f = g2localf.at(igbasis_f);
-                            if(ilocal_f == -1)
-                                continue;
-                            
-                            // divergence (field)
-                            const double div_f = 1./jpiola_f * (ds_f[itrial][0] + dt_f[itrial][1]);
-                            
-                            for(unsigned i = 0; i < 3; ++i)
-                                mat[ilocal_s][ilocal_f] += ekernel * basis_s[itest][i] * basis_f[itrial][i] * jdet_s * jdet_f * sw * fw;
-                            mat[ilocal_s][ilocal_f] -= 1.0 / (k * k) * div_s * div_f * ekernel * jdet_s * jdet_f * sw * fw;
-                            
-                        }
-                    }
                 }
             }
         }
-        // Apply conventional Suater Schwab routine for edge singularity
-        else
-        {
-            for(nurbs::IEdgeQuadrature igpt(sorder, forder, e1, e2); !igpt.isDone(); ++igpt)
-            {
-                const auto gpt4d = igpt.get();
-                const auto sparent = gpt4d.srcPt();
-                const auto fparent = gpt4d.fieldPt();
-                
-                const auto w = igpt.getWeight();
-                
-                // source element parameters
-                const auto& t1_s = p_sel->tangent(sparent.s, sparent.t, nurbs::ParamDir::S);
-                const auto& t2_s = p_sel->tangent(sparent.s, sparent.t, nurbs::ParamDir::T);
-                const auto& x = p_sel->eval(sparent);
-                const auto& basis_s = p_sel->basis(sparent.s, sparent.t, t1_s, t2_s);
-                const auto& ds_s = p_sel->localBasisDers(sparent.s, sparent.t, nurbs::DerivType::DS);
-                const auto& dt_s = p_sel->localBasisDers(sparent.s, sparent.t, nurbs::DerivType::DT);
-                const auto& jdet_s = p_sel->jacDet(sparent, t1_s, t2_s);
-                const auto& jpiola_s = nurbs::cross(t1_s, t2_s).length();
-                
-                // field point terms
-                const auto& t1_f = p_fel->tangent(fparent.s, fparent.t, nurbs::ParamDir::S);
-                const auto& t2_f = p_fel->tangent(fparent.s, fparent.t, nurbs::ParamDir::T);
-                const auto y = p_fel->eval(fparent);
-                const auto& basis_f = p_fel->basis(fparent.s, fparent.t, t1_f, t2_f);
-                const auto& ds_f = p_fel->localBasisDers(fparent.s, fparent.t, nurbs::DerivType::DS);
-                const auto& dt_f = p_fel->localBasisDers(fparent.s, fparent.t, nurbs::DerivType::DT);
-                const double jdet_f = p_fel->jacDet(fparent, t1_f, t2_f);
-                const double jpiola_f = nurbs::cross(t1_f, t2_f).length();
-                
-                // kernel
-                const double r = dist(x, y);
-                const auto ekernel = std::exp(std::complex<double>(0.0, -k * r)) / (4.0 * nurbs::PI * r);
-                
-                // now loop over test and trial functions
-                for(size_t itest = 0; itest < sconn.size(); ++itest)
-                {
-                    const auto igbasis_s = sconn[itest];
-                    if(igbasis_s == -1)
-                        continue;
-                    
-                    const auto ilocal_s = g2locals.at(igbasis_s);
-                    if(ilocal_s == -1)
-                        continue;
-                    
-                    // divergence (source)
-                    const double div_s = 1./jpiola_s * (ds_s[itest][0] + dt_s[itest][1]);
-                    
-                    for(size_t itrial = 0; itrial < fconn.size(); ++itrial)
-                    {
-                        const auto igbasis_f = fconn[itrial];
-                        if(igbasis_f == -1)
-                            continue;
-                        
-                        const auto ilocal_f = g2localf.at(igbasis_f);
-                        if(ilocal_f == -1)
-                            continue;
-                        
-                        // divergence (field)
-                        const double div_f = 1./jpiola_f * (ds_f[itrial][0] + dt_f[itrial][1]);
-                        
-                        for(unsigned i = 0; i < 3; ++i)
-                            mat[ilocal_s][ilocal_f] += ekernel * basis_s[itest][i] * basis_f[itrial][i] * jdet_s * jdet_f * w;
-                        mat[ilocal_s][ilocal_f] -= 1.0 / (k * k) * div_s * div_f * ekernel * jdet_s * jdet_f * w;
-                        
-                    }
-                }
-            }
-        }
+
 
     }
     
@@ -763,31 +696,22 @@ namespace fastibem {
                                                  const std::map<int, int>& g2localf,
                                                  MatrixType& mat) const
     {
-        const auto& nsubcells = defaultSubcellN();
-        
         const double k = wavenumber();
         
         // source element and connectivity
         const auto p_sel = forest().bezierElement(isrcel);
         const auto& sconn = p_sel->signedGlobalBasisFuncI();
-        //const auto& sorder = p_sel->equalIntegrationOrder(4);
         
         // quadrature orders
-        const nurbs::UIntVec sorder{6,6};
-        const nurbs::UIntVec forder{10,5};
+        const nurbs::UIntVec sorder{5,5};
+        const nurbs::UIntVec forder{4,4};
         
         // field element and connectivity
         const auto p_fel = forest().bezierElement(ifieldel);
         const auto& fconn = p_fel->signedGlobalBasisFuncI();
         
-//        uint offset = 4;
-//        if(p_fel->degenerate())
-//            offset += 2;
-//        
-//        const auto& forder = p_fel->equalIntegrationOrder(offset);
+        const auto degenerate_edgepair = p_fel->degenerateEdge();
 
-        
-        // and finally loop over all regular integrals
         for(nurbs::IElemIntegrate igpt_s(sorder); !igpt_s.isDone(); ++igpt_s)
         {
             const auto sparent = igpt_s.get();
@@ -806,9 +730,7 @@ namespace fastibem {
             const double jpiola_s = nurbs::cross(t1, t2).length();
             
             // integrate over field elements
-            //for(nurbs::IElemIntegrate igpt_f(forder); !igpt_f.isDone(); ++igpt_f)
-            //for(nurbs::IPolarIntegrate igpt_f(nurbs::GPt2D(0.0, 0.0), forder, nsubcells); !igpt_f.isDone(); ++igpt_f)
-            for(nurbs::IPolarIntegrate igpt_f(nurbs::projectPt(sparent, e1, e2), forder, nsubcells); !igpt_f.isDone(); ++igpt_f)
+            for(nurbs::IPolarDegenerate igpt_f(nurbs::projectPt(sparent, e1, e2), degenerate_edgepair.second, forder); !igpt_f.isDone(); ++igpt_f)
             {
                 const auto fparent = igpt_f.get();
                 const auto fw = igpt_f.getWeight();

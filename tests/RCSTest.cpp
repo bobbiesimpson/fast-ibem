@@ -60,7 +60,7 @@ int main(int argc, char* argv[])
     }
     
     multiforest.hrefine(refine);
-//    multiforest.graded_hrefine(refine, 0.5 );
+    //multiforest.graded_hrefine(refine, 0.25);
     
     std::cout << "Performing emag scattering analysis on multiforest with "
     << multiforest.elemN() << " elements, "

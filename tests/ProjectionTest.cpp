@@ -65,6 +65,7 @@ int main(int argc, char* argv[]) {
         }
 
         divforest.hrefine(refine);
+        //divforest.graded_hrefine(refine, 0.1);
         
         // assembly
         const unsigned ndof = divforest.globalDofN();
