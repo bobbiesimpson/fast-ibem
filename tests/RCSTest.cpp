@@ -39,6 +39,9 @@ int main(int argc, char* argv[])
     if(!g.loadHBSFile(ifs))
         error("Failed to load geometry from hbs data");
     
+    // ROTATE: hardcoded for stealth model
+    //g.rotate(nurbs::CartesianComponent::X, nurbs::PI * 0.5);
+    
     // Construct the necessary forests
     HDivForest multiforest(g);
     
@@ -69,8 +72,12 @@ int main(int argc, char* argv[])
     // Some hardcoded input parameters
     const double k = std::atof(argv[2]);
     
-    const double mu = 1.25663706e-6;
-    const double epsilon = 8.85418782e-12;
+//    const double mu = 1.25663706e-6;
+//    const double epsilon = 8.85418782e-12;
+
+    const double mu = 1.0;
+    const double epsilon = 1.0;
+    
     const double omega = k / std::sqrt(mu * epsilon);
     
     const Point3D kvec(k, 0.0, 0.0);
@@ -121,7 +128,7 @@ int main(int argc, char* argv[])
     const int noutput = 5;
     
     const double delta = nurbs::PI / nseg;          // theta increment
-    const double rfar = 1.0e3;                      // distance of far-field points from origin
+    const double rfar = 1.0e4;                      // distance of far-field points from origin
     
 //    const double start = nurbs::PI * 2.0/3.0;
 //    const double end = nurbs::PI;

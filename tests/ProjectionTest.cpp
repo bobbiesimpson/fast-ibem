@@ -37,14 +37,20 @@ int main(int argc, char* argv[]) {
         Geometry g;
         if(!g.loadHBSFile(ifs))
             error("Failed to load geometry from hbs data");
+        g.rotate(nurbs::CartesianComponent::X, nurbs::PI * 0.5);
         
-//        g.rescale(2.0/64.0);
-        EmagPlaneWave pw_functor(Point3D(146.70915, 0.0, 0.0),
+        EmagPlaneWave pw_functor(Point3D(0.043272, 0.0, 0.0),
                                  {0.0, 0.0, 1.0});
         
-        //SinusoidalFunctor s_functor;
         
+        // Create forest
         Forest forest(g);
+        nurbs::OutputVTK out("geometry");
+        out.outputGeometry(forest);
+        
+        return EXIT_SUCCESS;
+        
+        // Create HDiv forest
         HDivForest divforest(g);
         
         // refinement
@@ -207,7 +213,7 @@ int main(int argc, char* argv[]) {
         nurbshelper::NURBSCache::Instance().clear();
         
         // Norm
-        std::cout << "L2 graph norm: " << nurbs::L2graphNorm(divforest, solnvec) << "\n";
+        //std::cout << "L2 graph norm: " << nurbs::L2graphNorm(divforest, solnvec) << "\n";
         
         
         return EXIT_SUCCESS;

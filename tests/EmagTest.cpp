@@ -9,10 +9,6 @@
 #include "OutputVTK.h"
 #include "hlib.hh"
 #include "NURBSCache.h"
-//
-#include "Epetra_SerialDenseVector.h"
-#include "Epetra_SerialDenseMatrix.h"
-#include "Epetra_SerialDenseSolver.h"
 
 using namespace nurbs;
 
