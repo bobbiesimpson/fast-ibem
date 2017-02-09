@@ -77,13 +77,13 @@ int main(int argc, char* argv[])
     << multiforest.globalDofN() << " dof.....\n";
     
     // Some hardcoded input parameters
-    const Point3D observe(-1000.0,0.0,0.0);
-    const Point3D rhat(-1.0,0.0,0.0);
+    const Point3D observe(0.0,0.0,-1.0e3);
+    const Point3D rhat(0.0,0.0,-1.0);
     const std::vector<std::complex<double>> pvec
     {
+        std::complex<double>(0.0, -1.0),
         std::complex<double>(0.0, 0.0),
-        std::complex<double>(0.0, 0.0),
-        std::complex<double>(1.0, 0.0)
+        std::complex<double>(0.0, 0.0)
     };
 
     const double mu = 1.0;
@@ -98,18 +98,20 @@ int main(int argc, char* argv[])
     double k = kmin;
     const double kinc = (kmax - kmin) / nsample;
     
+    
     // loop over wavenumber samples
     while(k < kmax)
     {
         const double omega = k;
-        Point3D kvec (k,0.0,0.0);
+        Point3D kvec(0.0, 0.0, k);
         
         // Create class for assembling Hmatrix and force vector
         fastibem::HAssemblyEmag hassembly(multiforest,
                                           kvec,
                                           pvec,
                                           mu,
-                                          omega);
+                                          k);
+
         std::unique_ptr<HLIB::TMatrix> A;
         
         // attempt to read matrix
@@ -182,16 +184,19 @@ int main(int argc, char* argv[])
                 solnvec.push_back(std::complex<double>(entry.re(), entry.im()));
             }
             
-            // Output solution
+//            // Output solution
             const std::string fname = "miesphere-" + std::to_string(k);
-            nurbs::OutputVTK output(fname, 40);
+            nurbs::OutputVTK output(fname, 30);
             output.outputComplexVectorField(multiforest, "surface_current", solnvec);
-            double rcs = output.computeRCS(multiforest, observe, k, rhat , mu , omega , solnvec);
+            //output.outputAnalyticalMieComplexVectorField(multiforest, "exact mie", k);
+            double rcs = output.computeRCS(multiforest, observe, k, rhat, mu , omega , solnvec);
             std::cout<< "k = "<< k << "\t" << "rcs = "<< rcs/PI <<"\n";
             ofs << k << "\t" << rcs/PI << "\n";
         }
         else
             std::cout << "  not converged in " << timer << " and " << solve_info.n_iter() << " steps " << std::endl;
+
+        nurbshelper::NURBSCache::Instance().clear();
         
         k += kinc;
         
