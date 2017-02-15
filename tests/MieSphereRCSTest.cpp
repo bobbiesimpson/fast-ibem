@@ -11,6 +11,7 @@
 #include "OutputVTK.h"
 #include "hlib.hh"
 #include "NURBSCache.h"
+#include "Norm.h"
 
 #include <boost/filesystem.hpp>
 
@@ -186,12 +187,20 @@ int main(int argc, char* argv[])
             
 //            // Output solution
             const std::string fname = "miesphere-" + std::to_string(k);
-            nurbs::OutputVTK output(fname, 30);
+            nurbs::OutputVTK output(fname, 2);
             output.outputComplexVectorField(multiforest, "surface_current", solnvec);
+            
+            // Uncomment to output analytical mie solution
             //output.outputAnalyticalMieComplexVectorField(multiforest, "exact mie", k);
+            
+            // Get Radar cross section data
             double rcs = output.computeRCS(multiforest, observe, k, rhat, mu , omega , solnvec);
             std::cout<< "k = "<< k << "\t" << "rcs = "<< rcs/PI <<"\n";
             ofs << k << "\t" << rcs/PI << "\n";
+            
+            // Calculate surface norm
+            std::cout << "L2 graph norm\t" << nurbs::L2graphNormMieSphere(multiforest, k, solnvec) << "\n";
+            
         }
         else
             std::cout << "  not converged in " << timer << " and " << solve_info.n_iter() << " steps " << std::endl;
