@@ -37,9 +37,11 @@ int main(int argc, char* argv[]) {
         Geometry g;
         if(!g.loadHBSFile(ifs))
             error("Failed to load geometry from hbs data");
-        g.rotate(nurbs::CartesianComponent::X, nurbs::PI * 0.5);
+//        g.rotate(nurbs::CartesianComponent::X, nurbs::PI * 0.5);
+//        
+//        g.rescale(1.0/84.0);
         
-        EmagPlaneWave pw_functor(Point3D(0.043272, 0.0, 0.0),
+        EmagPlaneWave pw_functor(Point3D(1.0,0.0, 0.0),
                                  {0.0, 0.0, 1.0});
         
         
@@ -47,8 +49,8 @@ int main(int argc, char* argv[]) {
         Forest forest(g);
         nurbs::OutputVTK out("geometry");
         out.outputGeometry(forest);
-        
-        return EXIT_SUCCESS;
+//
+//        return EXIT_SUCCESS;
         
         // Create HDiv forest
         HDivForest divforest(g);
@@ -90,6 +92,8 @@ int main(int argc, char* argv[]) {
         
         SpMat M(ndof, ndof);
         
+        const nurbs::UIntVec qorder{4,4};
+        
         for(uint ielem = 0; ielem < divforest.elemN(); ++ielem)
         {
 //            std::cout << "Element: " << ielem << "\n";
@@ -102,7 +106,9 @@ int main(int argc, char* argv[]) {
             for(size_t i = 0; i < conn.size(); ++i)
                 submatrix.push_back(std::vector<double>(conn.size(), 0.0));
             
-            for(IElemIntegrate igpt(el->integrationOrder(2)); !igpt.isDone(); ++igpt)
+            const auto& order = qorder;// el->integrationOrder(2)
+            
+            for(IElemIntegrate igpt(order); !igpt.isDone(); ++igpt)
             {
                 const auto gpt = igpt.get();
                 const auto weight = igpt.getWeight();

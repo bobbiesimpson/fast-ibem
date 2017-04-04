@@ -39,7 +39,7 @@ int main(int argc, char* argv[])
     if(!g.loadHBSFile(ifs))
         error("Failed to load geometry from hbs data");
     
-    // ROTATE: hardcoded for stealth model
+    // hardcoded rotation and scaling for stealth model
     //g.rotate(nurbs::CartesianComponent::X, nurbs::PI * 0.5);
     
     // Construct the necessary forests
@@ -72,11 +72,11 @@ int main(int argc, char* argv[])
     // Some hardcoded input parameters
     const double k = std::atof(argv[2]);
     
-//    const double mu = 1.25663706e-6;
-//    const double epsilon = 8.85418782e-12;
+    const double mu = 1.25663706e-6;
+    const double epsilon = 8.85418782e-12;
 
-    const double mu = 1.0;
-    const double epsilon = 1.0;
+//    const double mu = 1.0;
+//    const double epsilon = 1.0;
     
     const double omega = k / std::sqrt(mu * epsilon);
     

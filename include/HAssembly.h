@@ -72,7 +72,7 @@ namespace fastibem {
         HAssembly(const F& f,
                   const std::vector<unsigned>& qorder = {2,2},
                   bool cache = false,
-                  const double eps = 1.0e-4,
+                  const double eps = 1.0e-8,
                   const unsigned nmin = 50,
                   const double admissible = 2.0)
         :
