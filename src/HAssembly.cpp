@@ -108,8 +108,8 @@ namespace fastibem {
         const auto k = wavenumber();
         const double minDistRatio = 2.0;                // the minimum d / h ratio for adaptive quadrature
         
-        const nurbs::UIntVec regularorder{5,5};         // default quadrature order for regular integrals
-        const nurbs::UIntVec degen_order{7,7};
+        const nurbs::UIntVec regularorder{3,3};         // default quadrature order for regular integrals
+        const nurbs::UIntVec degen_order{4,4};
         
         const nurbs::UIntVec nearsingular_sorder{4,4};
         const nurbs::UIntVec nearsingular_forder{4,4};
@@ -680,7 +680,7 @@ namespace fastibem {
         const auto p_sel = forest().bezierElement(isrcel);
         const auto p_fel = forest().bezierElement(ifieldel);
         
-        nurbs::UIntVec sorder{6,6};
+        nurbs::UIntVec sorder{5,5};
         nurbs::UIntVec forder{4,4};
         
         // Connectivities
@@ -1071,7 +1071,7 @@ namespace fastibem {
         const auto p_sel = forest().bezierElement(iel);
         const auto p_fel = forest().bezierElement(iel);
         
-        nurbs::UIntVec sorder{6,6};
+        nurbs::UIntVec sorder{5,5};
         nurbs::UIntVec forder{4,4};
         
 //        if(p_fel->degenerate())
