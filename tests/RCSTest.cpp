@@ -40,7 +40,14 @@ int main(int argc, char* argv[])
         error("Failed to load geometry from hbs data");
     
     // hardcoded rotation and scaling for stealth model
-    //g.rotate(nurbs::CartesianComponent::X, nurbs::PI * 0.5);
+//    g.rotate(nurbs::CartesianComponent::X, nurbs::PI * 0.25);
+    
+    // hardcoded rotation and scaling for Fichera cube
+//    g.rescale(1.0/6.0);
+    g.translate(Point3D(-0.5,-0.5,-0.5));
+//    g.rotate(nurbs::CartesianComponent::X, nurbs::PI * 0.25);
+//    g.rotate(nurbs::CartesianComponent::Z, nurbs::PI * 1.25);
+
     
     // Construct the necessary forests
     HDivForest multiforest(g);
@@ -72,11 +79,11 @@ int main(int argc, char* argv[])
     // Some hardcoded input parameters
     const double k = std::atof(argv[2]);
     
-    const double mu = 1.25663706e-6;
-    const double epsilon = 8.85418782e-12;
+//    const double mu = 1.25663706e-6;
+//    const double epsilon = 8.85418782e-12;
 
-//    const double mu = 1.0;
-//    const double epsilon = 1.0;
+    const double mu = 1.0;
+    const double epsilon = 1.0;
     
     const double omega = k / std::sqrt(mu * epsilon);
     
@@ -124,10 +131,10 @@ int main(int argc, char* argv[])
     ofs.precision( 18 );
     std::cout.precision( 18 );
     
-    const int nseg = 200;                            // number of points for sampling RCS
+    const int nseg = 300;                            // number of points for sampling RCS
     const int noutput = 5;
     
-    const double delta = nurbs::PI / nseg;          // theta increment
+    const double delta = 2.0 * nurbs::PI / nseg;          // theta increment
     const double rfar = 1.0e4;                      // distance of far-field points from origin
     
 //    const double start = nurbs::PI * 2.0/3.0;
@@ -149,6 +156,9 @@ int main(int argc, char* argv[])
         Point3D sample_pt(-rfar * cos(theta),
                           -rfar * sin(theta),
                           0.0);                     // coords of sample point
+        
+        std::cout << "sample point: " << sample_pt << "\n";
+        
         Point3D newkvec(k * cos(theta),
                         k * sin(theta),
                         0.0);                       // wave vector
@@ -212,10 +222,11 @@ int main(int argc, char* argv[])
             
             // Write rcs data
             const double raw_rcs = output.computeRCS(multiforest, sample_pt, k, rhat, mu, omega, solnvec);
-            const double normalised_rcs = 10.0 * log10(raw_rcs);
+            const double normalised_rcs =  raw_rcs ;//10.0 * log10(raw_rcs);
             
             std::cout<< "theta = " << theta << " " << "rcs = "<< normalised_rcs << "\n";
             ofs << 180.0 - (180.0 * theta/PI) << "\t" << normalised_rcs << "\n";
+            
         }
         else
             std::cout << "  not converged in " << timer << " and "

@@ -37,9 +37,12 @@ int main(int argc, char* argv[]) {
         Geometry g;
         if(!g.loadHBSFile(ifs))
             error("Failed to load geometry from hbs data");
-//        g.rotate(nurbs::CartesianComponent::X, nurbs::PI * 0.5);
-//        
-//        g.rescale(1.0/84.0);
+        
+        //g.rescale(1.0/6.0);
+//        g.translate(Point3D(-3.0,-3.0,-3.0));
+//        g.rotate(nurbs::CartesianComponent::X, nurbs::PI * 0.25);
+//        g.rotate(nurbs::CartesianComponent::Y, -nurbs::PI);
+//        g.rotate(nurbs::CartesianComponent::Z, nurbs::PI * 5.0/4.0);
         
         EmagPlaneWave pw_functor(Point3D(1.0,0.0, 0.0),
                                  {0.0, 0.0, 1.0});

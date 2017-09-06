@@ -108,8 +108,8 @@ namespace fastibem {
         const auto k = wavenumber();
         const double minDistRatio = 2.0;                // the minimum d / h ratio for adaptive quadrature
         
-        const nurbs::UIntVec regularorder{3,3};         // default quadrature order for regular integrals
-        const nurbs::UIntVec degen_order{4,4};
+        const nurbs::UIntVec regularorder{4,4};         // default quadrature order for regular integrals
+        const nurbs::UIntVec degen_order{5,5};
         
         const nurbs::UIntVec nearsingular_sorder{4,4};
         const nurbs::UIntVec nearsingular_forder{4,4};
